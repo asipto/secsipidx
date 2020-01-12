@@ -1,3 +1,3 @@
 # secsipidx #
 
-Secure SIP Identity Extension
+Secure SIP Identity Extensions
