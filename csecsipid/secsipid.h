@@ -71,7 +71,11 @@ extern "C" {
 
 // SecSIPIDSign --
 
-extern GoInt32 SecSIPIDSign(char* p0, char* p1, char* p2, char** p3);
+extern int SecSIPIDSign(char* p0, char* p1, char* p2, char** p3);
+
+// SecSIPIDCheck --
+
+extern int SecSIPIDCheck(char* p0, int p1, int p2, char* p3);
 
 #ifdef __cplusplus
 }
