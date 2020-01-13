@@ -37,6 +37,7 @@ type CLIOptions struct {
 	check     bool
 	sign      bool
 	jsonparse bool
+	expire    int
 	ltest     bool
 	version   bool
 }
@@ -62,6 +63,7 @@ var cliops = CLIOptions{
 	check:     false,
 	sign:      true,
 	jsonparse: false,
+	expire:    0,
 	ltest:     false,
 	version:   false,
 }
@@ -103,6 +105,7 @@ func init() {
 	flag.BoolVar(&cliops.sign, "sign", cliops.sign, "sign the header and payload")
 	flag.BoolVar(&cliops.sign, "s", cliops.sign, "sign the header and payload")
 	flag.BoolVar(&cliops.jsonparse, "json-parse", cliops.jsonparse, "parse and re-serialize JSON header and payaload values")
+	flag.IntVar(&cliops.expire, "expire", cliops.expire, "duration of token validity (in seconds)")
 	flag.BoolVar(&cliops.ltest, "ltest", cliops.ltest, "run local basic test")
 	flag.BoolVar(&cliops.ltest, "l", cliops.ltest, "run local basic test")
 	flag.BoolVar(&cliops.version, "version", cliops.version, "print version")
@@ -147,7 +150,7 @@ func localTest() {
 
 	token := secsipid.SJWTEncode(header, payload, ecdsaPrvKey)
 	fmt.Printf("Result: %s\n", token)
-	payloadOut, _ := secsipid.SJWTDecodeWithPubKey(token, ecdsaPubKey)
+	payloadOut, _ := secsipid.SJWTDecodeWithPubKey(token, cliops.expire, ecdsaPubKey)
 	jsonPayload, _ := json.Marshal(payloadOut)
 	fmt.Printf("Payload: %s\n", jsonPayload)
 
@@ -265,7 +268,7 @@ func secsipidxCLISign() int {
 	} else {
 		token, _ = secsipid.SJWTEncodeText(sHeader, sPayload, cliops.fprvkey)
 	}
-	fmt.Printf("Result: %s\n", token)
+	fmt.Printf("%s\n", token)
 
 	return 0
 }
@@ -286,14 +289,14 @@ func secsipidxCLICheck() int {
 		fmt.Printf("Identity value not provided\n")
 		return -1
 	}
-	ret, _ := secsipid.SJWTCheckIdentity(sIdentity, cliops.fpubkey)
+	ret, _ := secsipid.SJWTCheckIdentity(sIdentity, cliops.expire, cliops.fpubkey)
 	return ret
 }
 
 func main() {
-	flag.Parse()
+	var ret int
 
-	fmt.Printf("\n")
+	flag.Parse()
 
 	if cliops.version {
 		fmt.Printf("%s v%s\n", filepath.Base(os.Args[0]), secsipidxVersion)
@@ -305,17 +308,21 @@ func main() {
 		os.Exit(1)
 	}
 
+	ret = 0
 	if cliops.check {
-		if secsipidxCLICheck() == 0 {
+		ret = secsipidxCLICheck()
+		if ret == 0 {
 			fmt.Printf("ok\n")
 		} else {
 			fmt.Printf("not-ok\n")
 		}
+		os.Exit(ret)
 	} else if cliops.sign {
-		secsipidxCLISign()
+		ret = secsipidxCLISign()
+		os.Exit(ret)
 	} else {
 		fmt.Printf("%s v%s\n", filepath.Base(os.Args[0]), secsipidxVersion)
 		fmt.Printf("run '%s --help' to see the options\n", filepath.Base(os.Args[0]))
 	}
-
+	os.Exit(ret)
 }

@@ -44,9 +44,8 @@ type SJWTPayload struct {
 }
 
 var (
-	sJWTExpireInterval = 300
-	sES256KeyBits      = 256
-	sES256KeySize      = 32
+	sES256KeyBits = 256
+	sES256KeySize = 32
 )
 
 // SJWTParseECPrivateKeyFromPEM Parse PEM encoded Elliptic Curve Private Key Structure
@@ -134,6 +133,26 @@ func SJWTBase64DecodeBytes(seg string) ([]byte, error) {
 	}
 
 	return base64.URLEncoding.DecodeString(seg)
+}
+
+// SJWTGetValidPayload --
+func SJWTGetValidPayload(base64Payload string, expireVal int) (*SJWTPayload, error) {
+	decodedPayload, payloadErr := SJWTBase64DecodeString(base64Payload)
+	if payloadErr != nil {
+		return nil, fmt.Errorf("invalid payload: %s", payloadErr.Error())
+	}
+	payload := SJWTPayload{}
+
+	err := json.Unmarshal([]byte(decodedPayload), &payload)
+	if err != nil {
+		return nil, fmt.Errorf("invalid payload: %s", err.Error())
+	}
+
+	if payload.IAT != 0 && time.Now().Unix() > payload.IAT+int64(expireVal) {
+		return nil, errors.New("expired token")
+	}
+
+	return &payload, nil
 }
 
 // SJWTVerifyWithPubKey - implements the verify
@@ -231,8 +250,11 @@ func SJWTEncode(header SJWTHeader, payload SJWTPayload, prvkey interface{}) stri
 }
 
 // SJWTDecodeWithPubKey - decode JWT string
-func SJWTDecodeWithPubKey(jwt string, pubkey interface{}) (*SJWTPayload, error) {
+func SJWTDecodeWithPubKey(jwt string, expireVal int, pubkey interface{}) (*SJWTPayload, error) {
 	var ret int
+	var err error
+	var payload *SJWTPayload
+
 	token := strings.Split(jwt, ".")
 
 	if len(token) != 3 {
@@ -240,27 +262,14 @@ func SJWTDecodeWithPubKey(jwt string, pubkey interface{}) (*SJWTPayload, error) 
 		return nil, splitErr
 	}
 
-	decodedPayload, payloadErr := SJWTBase64DecodeString(token[1])
-	if payloadErr != nil {
-		return nil, fmt.Errorf("invalid payload: %s", payloadErr.Error())
-	}
-	payload := SJWTPayload{}
-
-	err := json.Unmarshal([]byte(decodedPayload), &payload)
-	if err != nil {
-		return nil, fmt.Errorf("invalid payload: %s", err.Error())
-	}
-
-	if payload.IAT != 0 && time.Now().Unix() > payload.IAT+int64(sJWTExpireInterval) {
-		return nil, errors.New("expired token")
-	}
+	payload, err = SJWTGetValidPayload(token[1], expireVal)
 	signatureValue := token[0] + "." + token[1]
 
 	ret, err = SJWTVerifyWithPubKey(signatureValue, token[2], pubkey)
 	if err != nil {
 		return nil, fmt.Errorf("verify failed: (%d) %v", ret, err)
 	}
-	return &payload, nil
+	return payload, nil
 }
 
 // SJWTEncodeText - encode header and payload to JWT
@@ -285,7 +294,7 @@ func SJWTEncodeText(headerJSON string, payloadJSON string, prvkeyPath string) (s
 
 // SJWTCheckIdentity - implements the verify of identity
 // For this verify method, key must be an ecdsa.PublicKey struct
-func SJWTCheckIdentity(identityVal string, pubkeyPath string) (int, error) {
+func SJWTCheckIdentity(identityVal string, expireVal int, pubkeyPath string) (int, error) {
 	var err error
 	var ret int
 	var ecdsaPubKey *ecdsa.PublicKey
