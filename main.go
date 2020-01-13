@@ -271,7 +271,22 @@ func secsipidxCLISign() int {
 }
 
 func secsipidxCLICheck() int {
-	return -1
+	var sIdentity string
+
+	if len(cliops.fpubkey) <= 0 {
+		fmt.Printf("path to public key not provided\n")
+		return -1
+	}
+	if len(cliops.fidentity) > 0 {
+		vIdentity, _ := ioutil.ReadFile(cliops.fidentity)
+		sIdentity = string(vIdentity)
+	} else if len(cliops.identity) > 0 {
+		sIdentity = cliops.identity
+	} else {
+		fmt.Printf("Identity value not provided\n")
+		return -1
+	}
+	return secsipid.SJWTCheckIdentity(sIdentity, cliops.fpubkey)
 }
 
 func main() {
@@ -289,10 +304,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	if cliops.sign {
+	if cliops.check {
+		if secsipidxCLICheck() == 0 {
+			fmt.Printf("ok\n")
+		} else {
+			fmt.Printf("not-ok\n")
+		}
+	} else if cliops.sign {
 		secsipidxCLISign()
-	} else if cliops.check {
-		secsipidxCLICheck()
 	} else {
 		fmt.Printf("%s v%s\n", filepath.Base(os.Args[0]), secsipidxVersion)
 		fmt.Printf("run '%s --help' to see the options\n", filepath.Base(os.Args[0]))

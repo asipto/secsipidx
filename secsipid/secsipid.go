@@ -283,3 +283,30 @@ func SJWTEncodeText(headerJSON string, payloadJSON string, prvkeyPath string) st
 	}
 	return signingValue + "." + signatureValue
 }
+
+// SJWTCheckIdentity - implements the verify of identity
+// For this verify method, key must be an ecdsa.PublicKey struct
+func SJWTCheckIdentity(identityVal string, pubkeyPath string) int {
+	var err error
+	var ecdsaPubKey *ecdsa.PublicKey
+
+	token := strings.Split(identityVal, ".")
+
+	if len(token) != 3 {
+		fmt.Printf("invalid token - must contain header, payload and signature\n")
+		return -1
+	}
+
+	pubkey, _ := ioutil.ReadFile(pubkeyPath)
+
+	if ecdsaPubKey, err = SJWTParseECPublicKeyFromPEM(pubkey); err != nil {
+		fmt.Printf("Unable to parse ECDSA public key: %v\n", err)
+		return -1
+	}
+	err = SJWTVerifyWithPubKey(token[0]+"."+token[1], token[2], ecdsaPubKey)
+	if err != nil {
+		return 0
+	}
+	fmt.Printf("failed to verify: %v\n", err)
+	return 1
+}
