@@ -4,6 +4,9 @@
 *.dll
 *.so
 *.dylib
+*.so.*
+*.o
+*.a
 
 # Test binary, built with `go test -c`
 *.test
@@ -13,3 +16,29 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+# tags
+tags
+TAGS
+.tags*
+# vi swaps
+.*.swp
+.*.swo
+
+# ignore dependency files
+*.d
+
+# Emacs backup files
+*~
+# Emacs file locks
+.#*
+# Emacs desktop files
+.emacs.desktop*
+# MacOSX auto-generated files
+libiname.lst
+*.dylib
+.DS_Store
+# man pages
+*.7
+# vscode tmp files
+.vscode
