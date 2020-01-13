@@ -279,9 +279,22 @@ func SJWTDecode(jwt string, pubkey interface{}) (*SJWTPayload, error) {
 
 // SJWTEncodeText - encode header and payload to JWT
 func SJWTEncodeText(headerJSON string, payloadJSON string, prvkeyPath string) string {
+	var err error
+	var signatureValue string
+	var ecdsaPrvKey *ecdsa.PrivateKey
+
 	prvkey, _ := ioutil.ReadFile(prvkeyPath)
 
+	if ecdsaPrvKey, err = SJWTParseECPrivateKeyFromPEM(prvkey); err != nil {
+		fmt.Printf("Unable to parse ECDSA private key: %v\n", err)
+		return ""
+	}
+
 	signingValue := SJWTBase64Encode(headerJSON) + "." + SJWTBase64Encode(payloadJSON)
-	signatureValue, _ := SJWTSign(signingValue, prvkey)
+	signatureValue, err = SJWTSign(signingValue, ecdsaPrvKey)
+	if err != nil {
+		fmt.Printf("failed to build signature: %v\n", err)
+		return ""
+	}
 	return signingValue + "." + signatureValue
 }
