@@ -17,8 +17,8 @@ const secsipidxVersion = "1.0"
 
 // CLIOptions - structure for command line options
 type CLIOptions struct {
-	prvkey    string
-	pubkey    string
+	fprvkey   string
+	fpubkey   string
 	header    string
 	fheader   string
 	payload   string
@@ -42,8 +42,8 @@ type CLIOptions struct {
 }
 
 var cliops = CLIOptions{
-	prvkey:    "",
-	pubkey:    "",
+	fprvkey:   "",
+	fpubkey:   "",
 	header:    "",
 	fheader:   "",
 	payload:   "",
@@ -76,10 +76,10 @@ func init() {
 		os.Exit(1)
 	}
 
-	flag.StringVar(&cliops.prvkey, "prvkey", cliops.prvkey, "path to private key")
-	flag.StringVar(&cliops.prvkey, "k", cliops.prvkey, "path to private key")
-	flag.StringVar(&cliops.pubkey, "pubkey", cliops.pubkey, "path to private key")
-	flag.StringVar(&cliops.pubkey, "p", cliops.pubkey, "path to private key")
+	flag.StringVar(&cliops.fprvkey, "fprvkey", cliops.fprvkey, "path to private key")
+	flag.StringVar(&cliops.fprvkey, "k", cliops.fprvkey, "path to private key")
+	flag.StringVar(&cliops.fpubkey, "fpubkey", cliops.fpubkey, "path to private key")
+	flag.StringVar(&cliops.fpubkey, "p", cliops.fpubkey, "path to private key")
 	flag.StringVar(&cliops.fheader, "fheader", cliops.fheader, "path to file with header value in JSON format")
 	flag.StringVar(&cliops.header, "header", cliops.header, "header value in JSON format")
 	flag.StringVar(&cliops.fpayload, "fpayload", cliops.fpayload, "path to file with payload value in JSON format")
@@ -164,7 +164,7 @@ func secsipidxCLISign() int {
 	var sPayload string
 	var token string
 
-	if len(cliops.prvkey) <= 0 {
+	if len(cliops.fprvkey) <= 0 {
 		fmt.Printf("path to private key not provided\n")
 		return -1
 	}
@@ -254,7 +254,7 @@ func secsipidxCLISign() int {
 	}
 
 	if useStruct {
-		prvkey, _ := ioutil.ReadFile(cliops.prvkey)
+		prvkey, _ := ioutil.ReadFile(cliops.fprvkey)
 		var ecdsaPrvKey *ecdsa.PrivateKey
 
 		if ecdsaPrvKey, err = secsipid.SJWTParseECPrivateKeyFromPEM(prvkey); err != nil {
@@ -263,7 +263,7 @@ func secsipidxCLISign() int {
 		}
 		token = secsipid.SJWTEncode(header, payload, ecdsaPrvKey)
 	} else {
-		token = secsipid.SJWTEncodeText(sHeader, sPayload, cliops.prvkey)
+		token = secsipid.SJWTEncodeText(sHeader, sPayload, cliops.fprvkey)
 	}
 	fmt.Printf("Result: %s\n", token)
 
