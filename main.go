@@ -153,7 +153,7 @@ func localTest() {
 
 	headerJSON, _ := json.Marshal(header)
 	payloadJSON, _ := json.Marshal(payload)
-	signatureText := secsipid.SJWTEncodeText(string(headerJSON), string(payloadJSON), "certs/ec256-private.pem")
+	signatureText, _ := secsipid.SJWTEncodeText(string(headerJSON), string(payloadJSON), "certs/ec256-private.pem")
 	fmt.Printf("Signature: %s\n", signatureText)
 }
 
@@ -263,7 +263,7 @@ func secsipidxCLISign() int {
 		}
 		token = secsipid.SJWTEncode(header, payload, ecdsaPrvKey)
 	} else {
-		token = secsipid.SJWTEncodeText(sHeader, sPayload, cliops.fprvkey)
+		token, _ = secsipid.SJWTEncodeText(sHeader, sPayload, cliops.fprvkey)
 	}
 	fmt.Printf("Result: %s\n", token)
 
@@ -286,7 +286,8 @@ func secsipidxCLICheck() int {
 		fmt.Printf("Identity value not provided\n")
 		return -1
 	}
-	return secsipid.SJWTCheckIdentity(sIdentity, cliops.fpubkey)
+	ret, _ := secsipid.SJWTCheckIdentity(sIdentity, cliops.fpubkey)
+	return ret
 }
 
 func main() {

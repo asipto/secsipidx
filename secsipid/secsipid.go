@@ -101,34 +101,34 @@ func SJWTParseECPublicKeyFromPEM(key []byte) (*ecdsa.PublicKey, error) {
 	return pkey, nil
 }
 
-// SJWTBase64Encode takes in a string and returns a base 64 encoded string
-func SJWTBase64Encode(src string) string {
+// SJWTBase64EncodeString encode string to base64 with padding stripped
+func SJWTBase64EncodeString(src string) string {
 	return strings.
 		TrimRight(base64.URLEncoding.
 			EncodeToString([]byte(src)), "=")
 }
 
-// SJWTBase64Decode takes in a base 64 encoded string and returns the
+// SJWTBase64DecodeString takes in a base 64 encoded string and returns the
 // actual string or an error of it fails to decode the string
-func SJWTBase64Decode(src string) (string, error) {
+func SJWTBase64DecodeString(src string) (string, error) {
 	if l := len(src) % 4; l > 0 {
 		src += strings.Repeat("=", 4-l)
 	}
 	decoded, err := base64.URLEncoding.DecodeString(src)
 	if err != nil {
-		errMsg := fmt.Errorf("decoding error %s", err)
-		return "", errMsg
+		return "", fmt.Errorf("decoding error %s", err)
 	}
 	return string(decoded), nil
 }
 
-// SJWTEncodeSegment Encode JWT specific base64url encoding with padding stripped
-func SJWTEncodeSegment(seg []byte) string {
+// SJWTBase64EncodeBytes encode bytes array to base64 with padding stripped
+func SJWTBase64EncodeBytes(seg []byte) string {
 	return strings.TrimRight(base64.URLEncoding.EncodeToString(seg), "=")
 }
 
-// SJWTDecodeSegment - Decode JWT specific base64url encoding with padding stripped
-func SJWTDecodeSegment(seg string) ([]byte, error) {
+// SJWTBase64DecodeBytes takes in a base 64 encoded string and returns the
+// actual bytes array or an error of it fails to decode the string
+func SJWTBase64DecodeBytes(seg string) ([]byte, error) {
 	if l := len(seg) % 4; l > 0 {
 		seg += strings.Repeat("=", 4-l)
 	}
@@ -138,12 +138,12 @@ func SJWTDecodeSegment(seg string) ([]byte, error) {
 
 // SJWTVerifyWithPubKey - implements the verify
 // For this verify method, key must be an ecdsa.PublicKey struct
-func SJWTVerifyWithPubKey(signingString string, signature string, key interface{}) error {
+func SJWTVerifyWithPubKey(signingString string, signature string, key interface{}) (int, error) {
 	var err error
 
 	var sig []byte
-	if sig, err = SJWTDecodeSegment(signature); err != nil {
-		return err
+	if sig, err = SJWTBase64DecodeBytes(signature); err != nil {
+		return -1, err
 	}
 
 	var ecdsaKey *ecdsa.PublicKey
@@ -151,26 +151,26 @@ func SJWTVerifyWithPubKey(signingString string, signature string, key interface{
 	case *ecdsa.PublicKey:
 		ecdsaKey = k
 	default:
-		return errors.New("invalid key type")
+		return -1, errors.New("invalid key type")
 	}
 
 	if len(sig) != 2*sES256KeySize {
-		return errors.New("ECDSA signature size verification failed")
+		return -1, errors.New("ECDSA signature size verification failed")
 	}
 
 	r := big.NewInt(0).SetBytes(sig[:sES256KeySize])
 	s := big.NewInt(0).SetBytes(sig[sES256KeySize:])
 
 	if !crypto.SHA256.Available() {
-		return errors.New("hashing function unavailable")
+		return -1, errors.New("hashing function unavailable")
 	}
 	hasher := crypto.SHA256.New()
 	hasher.Write([]byte(signingString))
 
 	if verifystatus := ecdsa.Verify(ecdsaKey, hasher.Sum(nil), r, s); verifystatus == true {
-		return nil
+		return 0, nil
 	}
-	return errors.New("ECDSA verification failed")
+	return -1, errors.New("ECDSA verification failed")
 }
 
 // SJWTSignWithPrvKey - implements the signing
@@ -214,7 +214,7 @@ func SJWTSignWithPrvKey(signingString string, key interface{}) (string, error) {
 
 		out := append(rBytesPadded, sBytesPadded...)
 
-		return SJWTEncodeSegment(out), nil
+		return SJWTBase64EncodeBytes(out), nil
 	}
 	return "", err
 }
@@ -222,16 +222,17 @@ func SJWTSignWithPrvKey(signingString string, key interface{}) (string, error) {
 // SJWTEncode - encode payload to JWT
 func SJWTEncode(header SJWTHeader, payload SJWTPayload, prvkey interface{}) string {
 	str, _ := json.Marshal(header)
-	jwthdr := SJWTBase64Encode(string(str))
+	jwthdr := SJWTBase64EncodeString(string(str))
 	encodedPayload, _ := json.Marshal(payload)
 	signingValue := jwthdr + "." +
-		SJWTBase64Encode(string(encodedPayload))
+		SJWTBase64EncodeString(string(encodedPayload))
 	signatureValue, _ := SJWTSignWithPrvKey(signingValue, prvkey)
 	return signingValue + "." + signatureValue
 }
 
 // SJWTDecodeWithPubKey - decode JWT string
 func SJWTDecodeWithPubKey(jwt string, pubkey interface{}) (*SJWTPayload, error) {
+	var ret int
 	token := strings.Split(jwt, ".")
 
 	if len(token) != 3 {
@@ -239,7 +240,7 @@ func SJWTDecodeWithPubKey(jwt string, pubkey interface{}) (*SJWTPayload, error) 
 		return nil, splitErr
 	}
 
-	decodedPayload, payloadErr := SJWTBase64Decode(token[1])
+	decodedPayload, payloadErr := SJWTBase64DecodeString(token[1])
 	if payloadErr != nil {
 		return nil, fmt.Errorf("invalid payload: %s", payloadErr.Error())
 	}
@@ -255,15 +256,15 @@ func SJWTDecodeWithPubKey(jwt string, pubkey interface{}) (*SJWTPayload, error) 
 	}
 	signatureValue := token[0] + "." + token[1]
 
-	err = SJWTVerifyWithPubKey(signatureValue, token[2], pubkey)
+	ret, err = SJWTVerifyWithPubKey(signatureValue, token[2], pubkey)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("verify failed: (%d) %v", ret, err)
 	}
 	return &payload, nil
 }
 
 // SJWTEncodeText - encode header and payload to JWT
-func SJWTEncodeText(headerJSON string, payloadJSON string, prvkeyPath string) string {
+func SJWTEncodeText(headerJSON string, payloadJSON string, prvkeyPath string) (string, error) {
 	var err error
 	var signatureValue string
 	var ecdsaPrvKey *ecdsa.PrivateKey
@@ -271,42 +272,39 @@ func SJWTEncodeText(headerJSON string, payloadJSON string, prvkeyPath string) st
 	prvkey, _ := ioutil.ReadFile(prvkeyPath)
 
 	if ecdsaPrvKey, err = SJWTParseECPrivateKeyFromPEM(prvkey); err != nil {
-		fmt.Printf("Unable to parse ECDSA private key: %v\n", err)
-		return ""
+		return "", err
 	}
 
-	signingValue := SJWTBase64Encode(headerJSON) + "." + SJWTBase64Encode(payloadJSON)
+	signingValue := SJWTBase64EncodeString(headerJSON) + "." + SJWTBase64EncodeString(payloadJSON)
 	signatureValue, err = SJWTSignWithPrvKey(signingValue, ecdsaPrvKey)
 	if err != nil {
-		fmt.Printf("failed to build signature: %v\n", err)
-		return ""
+		return "", fmt.Errorf("failed to build signature: %v", err)
 	}
-	return signingValue + "." + signatureValue
+	return signingValue + "." + signatureValue, nil
 }
 
 // SJWTCheckIdentity - implements the verify of identity
 // For this verify method, key must be an ecdsa.PublicKey struct
-func SJWTCheckIdentity(identityVal string, pubkeyPath string) int {
+func SJWTCheckIdentity(identityVal string, pubkeyPath string) (int, error) {
 	var err error
+	var ret int
 	var ecdsaPubKey *ecdsa.PublicKey
 
 	token := strings.Split(identityVal, ".")
 
 	if len(token) != 3 {
-		fmt.Printf("invalid token - must contain header, payload and signature\n")
-		return -1
+		return -1, fmt.Errorf("invalid token - must contain header, payload and signature")
 	}
 
 	pubkey, _ := ioutil.ReadFile(pubkeyPath)
 
 	if ecdsaPubKey, err = SJWTParseECPublicKeyFromPEM(pubkey); err != nil {
-		fmt.Printf("Unable to parse ECDSA public key: %v\n", err)
-		return -1
+		return -1, err
 	}
-	err = SJWTVerifyWithPubKey(token[0]+"."+token[1], token[2], ecdsaPubKey)
+	ret, err = SJWTVerifyWithPubKey(token[0]+"."+token[1], token[2], ecdsaPubKey)
 	if err != nil {
-		return 0
+		return 0, nil
 	}
-	fmt.Printf("failed to verify: %v\n", err)
-	return 1
+
+	return 1, fmt.Errorf("failed to verify: (%d) %v", ret, err)
 }
