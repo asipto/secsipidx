@@ -136,9 +136,9 @@ func SJWTDecodeSegment(seg string) ([]byte, error) {
 	return base64.URLEncoding.DecodeString(seg)
 }
 
-// SJWTVerify - implements the verify
+// SJWTVerifyWithPubKey - implements the verify
 // For this verify method, key must be an ecdsa.PublicKey struct
-func SJWTVerify(signingString string, signature string, key interface{}) error {
+func SJWTVerifyWithPubKey(signingString string, signature string, key interface{}) error {
 	var err error
 
 	var sig []byte
@@ -173,9 +173,9 @@ func SJWTVerify(signingString string, signature string, key interface{}) error {
 	return errors.New("ECDSA verification failed")
 }
 
-// SJWTSign - implements the signing
+// SJWTSignWithPrvKey - implements the signing
 // For this signing method, key must be an ecdsa.PrivateKey struct
-func SJWTSign(signingString string, key interface{}) (string, error) {
+func SJWTSignWithPrvKey(signingString string, key interface{}) (string, error) {
 	var ecdsaKey *ecdsa.PrivateKey
 	switch k := key.(type) {
 	case *ecdsa.PrivateKey:
@@ -226,12 +226,12 @@ func SJWTEncode(header SJWTHeader, payload SJWTPayload, prvkey interface{}) stri
 	encodedPayload, _ := json.Marshal(payload)
 	signingValue := jwthdr + "." +
 		SJWTBase64Encode(string(encodedPayload))
-	signatureValue, _ := SJWTSign(signingValue, prvkey)
+	signatureValue, _ := SJWTSignWithPrvKey(signingValue, prvkey)
 	return signingValue + "." + signatureValue
 }
 
-// SJWTDecode - decode JWT string
-func SJWTDecode(jwt string, pubkey interface{}) (*SJWTPayload, error) {
+// SJWTDecodeWithPubKey - decode JWT string
+func SJWTDecodeWithPubKey(jwt string, pubkey interface{}) (*SJWTPayload, error) {
 	token := strings.Split(jwt, ".")
 
 	if len(token) != 3 {
@@ -255,7 +255,7 @@ func SJWTDecode(jwt string, pubkey interface{}) (*SJWTPayload, error) {
 	}
 	signatureValue := token[0] + "." + token[1]
 
-	err = SJWTVerify(signatureValue, token[2], pubkey)
+	err = SJWTVerifyWithPubKey(signatureValue, token[2], pubkey)
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +276,7 @@ func SJWTEncodeText(headerJSON string, payloadJSON string, prvkeyPath string) st
 	}
 
 	signingValue := SJWTBase64Encode(headerJSON) + "." + SJWTBase64Encode(payloadJSON)
-	signatureValue, err = SJWTSign(signingValue, ecdsaPrvKey)
+	signatureValue, err = SJWTSignWithPrvKey(signingValue, ecdsaPrvKey)
 	if err != nil {
 		fmt.Printf("failed to build signature: %v\n", err)
 		return ""

@@ -147,7 +147,7 @@ func localTest() {
 
 	token := secsipid.SJWTEncode(header, payload, ecdsaPrvKey)
 	fmt.Printf("Result: %s\n", token)
-	payloadOut, _ := secsipid.SJWTDecode(token, ecdsaPubKey)
+	payloadOut, _ := secsipid.SJWTDecodeWithPubKey(token, ecdsaPubKey)
 	jsonPayload, _ := json.Marshal(payloadOut)
 	fmt.Printf("Payload: %s\n", jsonPayload)
 
