@@ -3,9 +3,7 @@ package secsipid
 import (
 	"crypto"
 	"crypto/ecdsa"
-	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
@@ -124,14 +122,6 @@ func SJWTBase64Decode(src string) (string, error) {
 	return string(decoded), nil
 }
 
-// SJWTHash generates a Hmac256 hash of a string using a secret
-func SJWTHash(src string, secret string) string {
-	key := []byte(secret)
-	h := hmac.New(sha256.New, key)
-	h.Write([]byte(src))
-	return base64.StdEncoding.EncodeToString(h.Sum(nil))
-}
-
 // SJWTEncodeSegment Encode JWT specific base64url encoding with padding stripped
 func SJWTEncodeSegment(seg []byte) string {
 	return strings.TrimRight(base64.URLEncoding.EncodeToString(seg), "=")
@@ -227,11 +217,6 @@ func SJWTSign(signingString string, key interface{}) (string, error) {
 		return SJWTEncodeSegment(out), nil
 	}
 	return "", err
-}
-
-// SJWTIsValidHash validates a hash againt a value
-func SJWTIsValidHash(value string, hash string, secret string) bool {
-	return hash == SJWTHash(value, secret)
 }
 
 // SJWTEncode - encode payload to JWT
