@@ -14,6 +14,7 @@ import (
 	"math/big"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // SJWTHeader - header for JWT
@@ -47,6 +48,17 @@ var (
 	sES256KeyBits = 256
 	sES256KeySize = 32
 )
+
+// SJWTRemoveWhiteSpaces --
+func SJWTRemoveWhiteSpaces(s string) string {
+	rout := make([]rune, 0, len(s))
+	for _, r := range s {
+		if !unicode.IsSpace(r) {
+			rout = append(rout, r)
+		}
+	}
+	return string(rout)
+}
 
 // SJWTParseECPrivateKeyFromPEM Parse PEM encoded Elliptic Curve Private Key Structure
 func SJWTParseECPrivateKeyFromPEM(key []byte) (*ecdsa.PrivateKey, error) {
@@ -255,7 +267,7 @@ func SJWTDecodeWithPubKey(jwt string, expireVal int, pubkey interface{}) (*SJWTP
 	var err error
 	var payload *SJWTPayload
 
-	token := strings.Split(jwt, ".")
+	token := strings.Split(strings.TrimSpace(jwt), ".")
 
 	if len(token) != 3 {
 		splitErr := errors.New("invalid token - must contain header, payload and signature")
@@ -284,7 +296,8 @@ func SJWTEncodeText(headerJSON string, payloadJSON string, prvkeyPath string) (s
 		return "", err
 	}
 
-	signingValue := SJWTBase64EncodeString(headerJSON) + "." + SJWTBase64EncodeString(payloadJSON)
+	signingValue := SJWTBase64EncodeString(strings.TrimSpace(headerJSON)) +
+		"." + SJWTBase64EncodeString(strings.TrimSpace(payloadJSON))
 	signatureValue, err = SJWTSignWithPrvKey(signingValue, ecdsaPrvKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to build signature: %v", err)
@@ -299,7 +312,7 @@ func SJWTCheckIdentity(identityVal string, expireVal int, pubkeyPath string) (in
 	var ret int
 	var ecdsaPubKey *ecdsa.PublicKey
 
-	token := strings.Split(identityVal, ".")
+	token := strings.Split(strings.TrimSpace(identityVal), ".")
 
 	if len(token) != 3 {
 		return -1, fmt.Errorf("invalid token - must contain header, payload and signature")
