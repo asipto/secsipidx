@@ -306,7 +306,6 @@ func SJWTEncodeText(headerJSON string, payloadJSON string, prvkeyPath string) (s
 }
 
 // SJWTCheckIdentity - implements the verify of identity
-// For this verify method, key must be an ecdsa.PublicKey struct
 func SJWTCheckIdentity(identityVal string, expireVal int, pubkeyPath string) (int, error) {
 	var err error
 	var ret int
@@ -329,4 +328,69 @@ func SJWTCheckIdentity(identityVal string, expireVal int, pubkeyPath string) (in
 	}
 
 	return 1, fmt.Errorf("failed to verify: (%d) %v", ret, err)
+}
+
+// SJWTCheckFullIdentity - implements the verify of identity
+func SJWTCheckFullIdentity(identityVal string, expireVal int, pubkeyPath string) (int, error) {
+	hdrtoken := strings.Split(strings.TrimSpace(identityVal), ";")
+
+	ret, err := SJWTCheckIdentity(hdrtoken[0], expireVal, pubkeyPath)
+	if ret != 0 {
+		return ret, err
+	}
+
+	if len(hdrtoken) == 1 {
+		return 0, nil
+	}
+
+	paramInfo := ""
+	for i := 1; i < len(hdrtoken); i++ {
+		ptoken := strings.Split(hdrtoken[i], "=")
+		if len(ptoken) == 2 {
+			if ptoken[0] == "alg" {
+				if ptoken[1] != "ES256" {
+					return -2, fmt.Errorf("invalid value for alg header parameter")
+				}
+			} else if ptoken[0] == "ppt" {
+				if ptoken[1] != "shaken" {
+					return -2, fmt.Errorf("invalid value for ppt header parameter")
+				}
+			} else if ptoken[0] == "info" {
+				paramInfo = ptoken[1]
+			}
+		}
+	}
+	if len(paramInfo) <= 2 {
+		return 0, nil
+	}
+	if paramInfo[0] == '<' && paramInfo[len(paramInfo)-1] == '>' {
+		paramInfo = paramInfo[1 : len(paramInfo)-1]
+	}
+	btoken := strings.Split(strings.TrimSpace(hdrtoken[0]), ".")
+
+	if len(btoken[0]) == 0 {
+		return 0, nil
+	}
+	vHeader := ""
+	vHeader, err = SJWTBase64DecodeString(btoken[0])
+
+	header := SJWTHeader{}
+	err = json.Unmarshal([]byte(vHeader), &header)
+	if err != nil {
+		return -3, err
+	}
+	if len(header.Alg) > 0 && header.Alg != "ES256" {
+		return -2, fmt.Errorf("invalid value for alg in json header")
+	}
+	if len(header.Ppt) > 0 && header.Ppt != "shaken" {
+		return -2, fmt.Errorf("invalid value for ppt in json header")
+	}
+	if len(header.Typ) > 0 && header.Typ != "passport" {
+		return -2, fmt.Errorf("invalid value for typ in json header")
+	}
+	if len(header.X5u) > 0 && header.X5u != paramInfo {
+		return -2, fmt.Errorf("mismatching value for x5u and info attributes")
+	}
+
+	return 0, nil
 }
