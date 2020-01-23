@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -17,6 +18,7 @@ const secsipidxVersion = "1.0"
 
 // CLIOptions - structure for command line options
 type CLIOptions struct {
+	httpsrv   string
 	fprvkey   string
 	fpubkey   string
 	header    string
@@ -45,6 +47,7 @@ type CLIOptions struct {
 }
 
 var cliops = CLIOptions{
+	httpsrv:   "",
 	fprvkey:   "",
 	fpubkey:   "",
 	header:    "",
@@ -82,6 +85,8 @@ func init() {
 		os.Exit(1)
 	}
 
+	flag.StringVar(&cliops.httpsrv, "httpsrv", cliops.httpsrv, "http server bind address")
+	flag.StringVar(&cliops.httpsrv, "H", cliops.httpsrv, "http server bind address")
 	flag.StringVar(&cliops.fprvkey, "fprvkey", cliops.fprvkey, "path to private key")
 	flag.StringVar(&cliops.fprvkey, "k", cliops.fprvkey, "path to private key")
 	flag.StringVar(&cliops.fpubkey, "fpubkey", cliops.fpubkey, "path to private key")
@@ -295,6 +300,7 @@ func secsipidxCLISign() int {
 func secsipidxCLICheck() int {
 	var sIdentity string
 	var ret int
+	var err error
 
 	if len(cliops.fpubkey) <= 0 {
 		fmt.Printf("path to public key not provided\n")
@@ -310,9 +316,33 @@ func secsipidxCLICheck() int {
 		return -1
 	}
 
-	ret, _ = secsipid.SJWTCheckFullIdentity(sIdentity, cliops.expire, cliops.fpubkey, cliops.timeout)
+	ret, err = secsipid.SJWTCheckFullIdentity(sIdentity, cliops.expire, cliops.fpubkey, cliops.timeout)
 
+	if err != nil {
+		fmt.Printf("error message: %v\n", err)
+	}
 	return ret
+}
+
+func httpHandleV1Check(w http.ResponseWriter, r *http.Request) {
+	var ret int
+
+	fmt.Printf("incoming request for identity check ...\n")
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		fmt.Printf("error reading body: %v", err)
+		http.Error(w, "cannot read body", http.StatusBadRequest)
+		return
+	}
+	ret, err = secsipid.SJWTCheckFullIdentity(string(body), cliops.expire, cliops.fpubkey, cliops.timeout)
+
+	if err != nil {
+		fmt.Printf("failed checking identity: %v\n", err)
+		http.Error(w, "FAILED", http.StatusInternalServerError)
+		return
+	}
+	fmt.Printf("valid identity - return code: %d\n", ret)
+	fmt.Fprintf(w, "OK")
 }
 
 func main() {
@@ -328,6 +358,12 @@ func main() {
 	if cliops.ltest {
 		localTest()
 		os.Exit(1)
+	}
+
+	if len(cliops.httpsrv) > 0 {
+		http.HandleFunc("/v1/check", httpHandleV1Check)
+		fmt.Printf("strting http server listening on (%s) ...\n", cliops.httpsrv)
+		http.ListenAndServe(cliops.httpsrv, nil)
 	}
 
 	ret = 0
