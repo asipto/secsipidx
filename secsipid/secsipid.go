@@ -12,9 +12,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
+	"net/http"
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/google/uuid"
 )
 
 // SJWTHeader - header for JWT
@@ -145,6 +148,29 @@ func SJWTBase64DecodeBytes(seg string) ([]byte, error) {
 	}
 
 	return base64.URLEncoding.DecodeString(seg)
+}
+
+// SJWTGetURLContent --
+func SJWTGetURLContent(urlVal string, timeoutVal int) ([]byte, error) {
+	httpClient := http.Client{
+		Timeout: time.Duration(timeoutVal) * time.Second,
+	}
+	resp, err := httpClient.Get(urlVal)
+	if err != nil {
+		return nil, fmt.Errorf("http get failure: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("http status error: %v", resp.StatusCode)
+	}
+
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read http body failure: %v", err)
+	}
+
+	return data, nil
 }
 
 // SJWTGetValidPayload --
@@ -306,18 +332,22 @@ func SJWTEncodeText(headerJSON string, payloadJSON string, prvkeyPath string) (s
 }
 
 // SJWTCheckIdentity - implements the verify of identity
-func SJWTCheckIdentity(identityVal string, expireVal int, pubkeyPath string) (int, error) {
+func SJWTCheckIdentity(identityVal string, expireVal int, pubkeyPath string, timeoutVal int) (int, error) {
 	var err error
 	var ret int
 	var ecdsaPubKey *ecdsa.PublicKey
+	var pubkey []byte
 
 	token := strings.Split(strings.TrimSpace(identityVal), ".")
 
 	if len(token) != 3 {
 		return -1, fmt.Errorf("invalid token - must contain header, payload and signature")
 	}
-
-	pubkey, _ := ioutil.ReadFile(pubkeyPath)
+	if strings.HasPrefix(pubkeyPath, "http://") || strings.HasPrefix(pubkeyPath, "https://") {
+		pubkey, _ = SJWTGetURLContent(pubkeyPath, timeoutVal)
+	} else {
+		pubkey, _ = ioutil.ReadFile(pubkeyPath)
+	}
 
 	if ecdsaPubKey, err = SJWTParseECPublicKeyFromPEM(pubkey); err != nil {
 		return -1, err
@@ -331,10 +361,10 @@ func SJWTCheckIdentity(identityVal string, expireVal int, pubkeyPath string) (in
 }
 
 // SJWTCheckFullIdentity - implements the verify of identity
-func SJWTCheckFullIdentity(identityVal string, expireVal int, pubkeyPath string) (int, error) {
-	hdrtoken := strings.Split(strings.TrimSpace(identityVal), ";")
+func SJWTCheckFullIdentity(identityVal string, expireVal int, pubkeyPath string, timeoutVal int) (int, error) {
+	hdrtoken := strings.Split(SJWTRemoveWhiteSpaces(identityVal), ";")
 
-	ret, err := SJWTCheckIdentity(hdrtoken[0], expireVal, pubkeyPath)
+	ret, err := SJWTCheckIdentity(hdrtoken[0], expireVal, pubkeyPath, timeoutVal)
 	if ret != 0 {
 		return ret, err
 	}
@@ -393,4 +423,121 @@ func SJWTCheckFullIdentity(identityVal string, expireVal int, pubkeyPath string)
 	}
 
 	return 0, nil
+}
+
+// SJWTCheckFullIdentityURL - implements the verify of identity using URL
+func SJWTCheckFullIdentityURL(identityVal string, expireVal int, timeoutVal int) (int, error) {
+	var ecdsaPubKey *ecdsa.PublicKey
+	var ret int
+
+	hdrtoken := strings.Split(SJWTRemoveWhiteSpaces(identityVal), ";")
+
+	if len(hdrtoken) == 1 {
+		return -1, fmt.Errorf("missing parts of the message header")
+	}
+
+	paramInfo := ""
+	for i := 1; i < len(hdrtoken); i++ {
+		ptoken := strings.Split(hdrtoken[i], "=")
+		if len(ptoken) == 2 {
+			if ptoken[0] == "alg" {
+				if ptoken[1] != "ES256" {
+					return -2, fmt.Errorf("invalid value for alg header parameter")
+				}
+			} else if ptoken[0] == "ppt" {
+				if ptoken[1] != "shaken" {
+					return -2, fmt.Errorf("invalid value for ppt header parameter")
+				}
+			} else if ptoken[0] == "info" {
+				paramInfo = ptoken[1]
+			}
+		}
+	}
+	if len(paramInfo) <= 2 {
+		return -1, fmt.Errorf("invalid value info header parameter")
+	}
+	if paramInfo[0] == '<' && paramInfo[len(paramInfo)-1] == '>' {
+		paramInfo = paramInfo[1 : len(paramInfo)-1]
+	}
+
+	pubkey, err := SJWTGetURLContent(paramInfo, timeoutVal)
+
+	if ecdsaPubKey, err = SJWTParseECPublicKeyFromPEM(pubkey); err != nil {
+		return -1, err
+	}
+
+	btoken := strings.Split(strings.TrimSpace(hdrtoken[0]), ".")
+
+	if len(btoken[0]) == 0 {
+		return -1, fmt.Errorf("ino json header part")
+	}
+
+	ret, err = SJWTVerifyWithPubKey(btoken[0]+"."+btoken[1], btoken[2], ecdsaPubKey)
+	if err != nil {
+		return ret, err
+	}
+
+	vHeader := ""
+	vHeader, err = SJWTBase64DecodeString(btoken[0])
+
+	header := SJWTHeader{}
+	err = json.Unmarshal([]byte(vHeader), &header)
+	if err != nil {
+		return -3, err
+	}
+	if len(header.Alg) > 0 && header.Alg != "ES256" {
+		return -2, fmt.Errorf("invalid value for alg in json header")
+	}
+	if len(header.Ppt) > 0 && header.Ppt != "shaken" {
+		return -2, fmt.Errorf("invalid value for ppt in json header")
+	}
+	if len(header.Typ) > 0 && header.Typ != "passport" {
+		return -2, fmt.Errorf("invalid value for typ in json header")
+	}
+	if len(header.X5u) > 0 && header.X5u != paramInfo {
+		return -2, fmt.Errorf("mismatching value for x5u and info attributes")
+	}
+
+	return ret, nil
+}
+
+// SJWTGetIdentity --
+func SJWTGetIdentity(origTN string, destTN string, attestVal string, x5uVal string, prvkeyPath string) (string, error) {
+	var err error
+
+	header := SJWTHeader{
+		Alg: "ES256",
+		Ppt: "shaken",
+		Typ: "passport",
+		X5u: "https://127.0.0.1/cert.pem",
+	}
+	if len(x5uVal) > 0 {
+		header.X5u = x5uVal
+	}
+	vuuid := uuid.New()
+
+	payload := SJWTPayload{
+		ATTest: attestVal,
+		Dest: SJWTDest{
+			TN: []string{destTN},
+		},
+		IAT: time.Now().Unix(),
+		Orig: SJWTOrig{
+			TN: origTN,
+		},
+		OrigID: vuuid.String(),
+	}
+
+	prvkey, _ := ioutil.ReadFile(prvkeyPath)
+	var ecdsaPrvKey *ecdsa.PrivateKey
+
+	if ecdsaPrvKey, err = SJWTParseECPrivateKeyFromPEM(prvkey); err != nil {
+		return "", fmt.Errorf("Unable to parse ECDSA private key: %v", err)
+	}
+	token := SJWTEncode(header, payload, ecdsaPrvKey)
+
+	if len(token) > 0 {
+		return token + ";info=<" + header.X5u + ">;>alg=ES256;ppt=shaken", nil
+	}
+	return "", nil
 }
