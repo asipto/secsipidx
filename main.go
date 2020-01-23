@@ -36,8 +36,10 @@ type CLIOptions struct {
 	origid    string
 	check     bool
 	sign      bool
+	signfull  bool
 	jsonparse bool
 	expire    int
+	timeout   int
 	ltest     bool
 	version   bool
 }
@@ -61,9 +63,11 @@ var cliops = CLIOptions{
 	iat:       0,
 	origid:    "",
 	check:     false,
-	sign:      true,
+	sign:      false,
+	signfull:  false,
 	jsonparse: false,
 	expire:    0,
+	timeout:   3,
 	ltest:     false,
 	version:   false,
 }
@@ -104,8 +108,11 @@ func init() {
 	flag.BoolVar(&cliops.check, "c", cliops.check, "check validity of the signature")
 	flag.BoolVar(&cliops.sign, "sign", cliops.sign, "sign the header and payload")
 	flag.BoolVar(&cliops.sign, "s", cliops.sign, "sign the header and payload")
+	flag.BoolVar(&cliops.signfull, "sign-full", cliops.sign, "sign the header and payload, with parameters")
+	flag.BoolVar(&cliops.signfull, "S", cliops.sign, "sign the header and payload, with parameters")
 	flag.BoolVar(&cliops.jsonparse, "json-parse", cliops.jsonparse, "parse and re-serialize JSON header and payaload values")
 	flag.IntVar(&cliops.expire, "expire", cliops.expire, "duration of token validity (in seconds)")
+	flag.IntVar(&cliops.timeout, "timeout", cliops.timeout, "http get timeout (in seconds)")
 	flag.BoolVar(&cliops.ltest, "ltest", cliops.ltest, "run local basic test")
 	flag.BoolVar(&cliops.ltest, "l", cliops.ltest, "run local basic test")
 	flag.BoolVar(&cliops.version, "version", cliops.version, "print version")
@@ -158,6 +165,18 @@ func localTest() {
 	payloadJSON, _ := json.Marshal(payload)
 	signatureText, _ := secsipid.SJWTEncodeText(string(headerJSON), string(payloadJSON), "certs/ec256-private.pem")
 	fmt.Printf("Signature: %s\n", signatureText)
+}
+
+func secsipidxCLISignFull() int {
+
+	token, err := secsipid.SJWTGetIdentity(cliops.origtn, cliops.desttn, cliops.attest, cliops.x5u, cliops.fprvkey)
+
+	if err != nil {
+		fmt.Printf("error: %v\n", err)
+		return -1
+	}
+	fmt.Printf("%s\n", token)
+	return 0
 }
 
 func secsipidxCLISign() int {
@@ -275,6 +294,7 @@ func secsipidxCLISign() int {
 
 func secsipidxCLICheck() int {
 	var sIdentity string
+	var ret int
 
 	if len(cliops.fpubkey) <= 0 {
 		fmt.Printf("path to public key not provided\n")
@@ -289,7 +309,9 @@ func secsipidxCLICheck() int {
 		fmt.Printf("Identity value not provided\n")
 		return -1
 	}
-	ret, _ := secsipid.SJWTCheckIdentity(sIdentity, cliops.expire, cliops.fpubkey)
+
+	ret, _ = secsipid.SJWTCheckFullIdentity(sIdentity, cliops.expire, cliops.fpubkey, cliops.timeout)
+
 	return ret
 }
 
@@ -316,6 +338,9 @@ func main() {
 		} else {
 			fmt.Printf("not-ok\n")
 		}
+		os.Exit(ret)
+	} else if cliops.signfull {
+		ret = secsipidxCLISignFull()
 		os.Exit(ret)
 	} else if cliops.sign {
 		ret = secsipidxCLISign()
