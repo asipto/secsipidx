@@ -69,17 +69,21 @@ extern "C" {
 #endif
 
 
-// SecSIPIDSign --
+// SecSIPIDSignJSONHP --
 
-extern int SecSIPIDSign(char* p0, char* p1, char* p2, char** p3);
+extern int SecSIPIDSignJSONHP(char* p0, char* p1, char* p2, char** p3);
+
+// SecSIPIDGetIdentity --
+
+extern int SecSIPIDGetIdentity(char* p0, char* p1, char* p2, char* p3, char* p4, char** p5);
 
 // SecSIPIDCheck --
 
-extern int SecSIPIDCheck(char* p0, int p1, int p2, char* p3);
+extern int SecSIPIDCheck(char* p0, int p1, int p2, char* p3, int p4);
 
 // SecSIPIDCheckFull --
 
-extern int SecSIPIDCheckFull(char* p0, int p1, int p2, char* p3);
+extern int SecSIPIDCheckFull(char* p0, int p1, int p2, char* p3, int p4);
 
 #ifdef __cplusplus
 }
