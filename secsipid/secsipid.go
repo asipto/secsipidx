@@ -353,7 +353,7 @@ func SJWTCheckIdentity(identityVal string, expireVal int, pubkeyPath string, tim
 		return -1, err
 	}
 	ret, err = SJWTVerifyWithPubKey(token[0]+"."+token[1], token[2], ecdsaPubKey)
-	if err != nil {
+	if err == nil {
 		return 0, nil
 	}
 
