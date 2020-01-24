@@ -513,8 +513,9 @@ func SJWTCheckFullIdentityURL(identityVal string, expireVal int, timeoutVal int)
 }
 
 // SJWTGetIdentity --
-func SJWTGetIdentity(origTN string, destTN string, attestVal string, x5uVal string, prvkeyPath string) (string, error) {
+func SJWTGetIdentity(origTN string, destTN string, attestVal string, origID string, x5uVal string, prvkeyPath string) (string, error) {
 	var err error
+	var vOrigID string
 
 	header := SJWTHeader{
 		Alg: "ES256",
@@ -525,7 +526,12 @@ func SJWTGetIdentity(origTN string, destTN string, attestVal string, x5uVal stri
 	if len(x5uVal) > 0 {
 		header.X5u = x5uVal
 	}
-	vuuid := uuid.New()
+	if len(origID) > 0 {
+		vOrigID = origID
+	} else {
+		vuuid := uuid.New()
+		vOrigID = vuuid.String()
+	}
 
 	payload := SJWTPayload{
 		ATTest: attestVal,
@@ -536,7 +542,7 @@ func SJWTGetIdentity(origTN string, destTN string, attestVal string, x5uVal stri
 		Orig: SJWTOrig{
 			TN: origTN,
 		},
-		OrigID: vuuid.String(),
+		OrigID: vOrigID,
 	}
 
 	prvkey, _ := ioutil.ReadFile(prvkeyPath)

@@ -174,7 +174,7 @@ func localTest() {
 
 func secsipidxCLISignFull() int {
 
-	token, err := secsipid.SJWTGetIdentity(cliops.origtn, cliops.desttn, cliops.attest, cliops.x5u, cliops.fprvkey)
+	token, err := secsipid.SJWTGetIdentity(cliops.origtn, cliops.desttn, cliops.attest, cliops.origid, cliops.x5u, cliops.fprvkey)
 
 	if err != nil {
 		fmt.Printf("error: %v\n", err)

@@ -16,8 +16,8 @@ func SecSIPIDSignJSONHP(headerJSON *C.char, payloadJSON *C.char, prvkeyPath *C.c
 
 // SecSIPIDGetIdentity --
 //export SecSIPIDGetIdentity
-func SecSIPIDGetIdentity(origTN *C.char, destTN *C.char, attestVal *C.char, x5uVal *C.char, prvkeyPath *C.char, outPtr **C.char) C.int {
-	signature, _ := secsipid.SJWTGetIdentity(C.GoString(origTN), C.GoString(destTN), C.GoString(attestVal), C.GoString(x5uVal), C.GoString(prvkeyPath))
+func SecSIPIDGetIdentity(origTN *C.char, destTN *C.char, attestVal *C.char, origID *C.char, x5uVal *C.char, prvkeyPath *C.char, outPtr **C.char) C.int {
+	signature, _ := secsipid.SJWTGetIdentity(C.GoString(origTN), C.GoString(destTN), C.GoString(attestVal), C.GoString(origID), C.GoString(x5uVal), C.GoString(prvkeyPath))
 	*outPtr = C.CString(signature)
 	return C.int(len(signature))
 }
