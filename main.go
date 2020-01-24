@@ -338,11 +338,11 @@ func httpHandleV1Check(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		fmt.Printf("failed checking identity: %v\n", err)
-		http.Error(w, "FAILED", http.StatusInternalServerError)
+		http.Error(w, "FAILED\n", http.StatusInternalServerError)
 		return
 	}
 	fmt.Printf("valid identity - return code: %d\n", ret)
-	fmt.Fprintf(w, "OK")
+	fmt.Fprintf(w, "OK\n")
 }
 
 func main() {
