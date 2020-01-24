@@ -301,6 +301,10 @@ func SJWTDecodeWithPubKey(jwt string, expireVal int, pubkey interface{}) (*SJWTP
 	}
 
 	payload, err = SJWTGetValidPayload(token[1], expireVal)
+	if err != nil {
+		return nil, fmt.Errorf("getting payload failed: (%d) %v", ret, err)
+	}
+
 	signatureValue := token[0] + "." + token[1]
 
 	ret, err = SJWTVerifyWithPubKey(signatureValue, token[2], pubkey)
@@ -337,12 +341,19 @@ func SJWTCheckIdentity(identityVal string, expireVal int, pubkeyPath string, tim
 	var ret int
 	var ecdsaPubKey *ecdsa.PublicKey
 	var pubkey []byte
+	var payload *SJWTPayload
 
 	token := strings.Split(strings.TrimSpace(identityVal), ".")
 
 	if len(token) != 3 {
 		return -1, fmt.Errorf("invalid token - must contain header, payload and signature")
 	}
+
+	payload, err = SJWTGetValidPayload(token[1], expireVal)
+	if err != nil {
+		return -1, err
+	}
+
 	if strings.HasPrefix(pubkeyPath, "http://") || strings.HasPrefix(pubkeyPath, "https://") {
 		pubkey, _ = SJWTGetURLContent(pubkeyPath, timeoutVal)
 	} else {
@@ -357,7 +368,7 @@ func SJWTCheckIdentity(identityVal string, expireVal int, pubkeyPath string, tim
 		return 0, nil
 	}
 
-	return 1, fmt.Errorf("failed to verify: (%d) %v", ret, err)
+	return 1, fmt.Errorf("failed to verify - origid (%s) (%d) %v", payload.OrigID, ret, err)
 }
 
 // SJWTCheckFullIdentity - implements the verify of identity
