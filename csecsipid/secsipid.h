@@ -3,6 +3,6 @@
 #ifndef __SECSIPID_H__
 #define __SECSIPID_H__
 
-#include <libsecsipid.h>
+#include "libsecsipid.h"
 
 #endif
