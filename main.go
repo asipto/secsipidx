@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/asipto/secsipidx/secsipid"
@@ -345,6 +346,34 @@ func httpHandleV1Check(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "OK\n")
 }
 
+func httpHandleV1SignCSV(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("incoming request for building identity ...\n")
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		fmt.Printf("error reading body: %v\n", err)
+		http.Error(w, "cannot read body", http.StatusBadRequest)
+		return
+	}
+
+	token := strings.Split(strings.TrimSpace(string(body)), ",")
+	if len(token) < 5 {
+		fmt.Printf("too few tokens in input body: %d\n", len(token))
+		http.Error(w, "too few tokens", http.StatusBadRequest)
+		return
+	}
+
+	var hdr string
+	hdr, err = secsipid.SJWTGetIdentity(token[0], token[1], token[2], token[3], token[4], cliops.fprvkey)
+	if err != nil {
+		fmt.Printf("error reading body: %v", err)
+		http.Error(w, "cannot read body", http.StatusBadRequest)
+		return
+	}
+
+	fmt.Fprintf(w, "%s\n", hdr)
+
+}
+
 func main() {
 	var ret int
 
@@ -362,6 +391,7 @@ func main() {
 
 	if len(cliops.httpsrv) > 0 {
 		http.HandleFunc("/v1/check", httpHandleV1Check)
+		http.HandleFunc("/v1/sign-csv", httpHandleV1SignCSV)
 		fmt.Printf("strting http server listening on (%s) ...\n", cliops.httpsrv)
 		http.ListenAndServe(cliops.httpsrv, nil)
 	}
