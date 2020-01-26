@@ -83,14 +83,41 @@ secsipidx -check -fidentity identity.txt -fpubkey ec256-public.pem -expire 3600
 Run `secsipidx` as an HTTP server listening on port `8090` for checking SIP identity with public key from file `ec256-public.pem`:
 
 ```
-secsipidx -H ":8090" -fpubkey ec256-public.pem -expire 3600 -timeout 5
+secsipidx -httpsrv ":8090" -httpdrv /secsipidx/http/public -fprvkey ec256-private.pem -fpubkey ec256-public.pem -expire 3600 -timeout 5
 ```
+
+##### Check Identity #####
 
 If the identity header body is saved in the file `identity.txt`, the next command can be used to check it:
 
 ```
 curl --data @identity.txt http://127.0.0.1:8090/v1/check
 ```
+
+If `secsipidx` is started without `-fpubkey` or `-pubkey`, then the public key to check the signature
+is downloaded from `x5u` URL (or the header `info` parameter). The value of `-timeout` parameter
+is used to limit the download time of the public key via HTTP.
+
+##### Generate Identity - CSV API #####
+
+Prototype:
+
+```
+curl --data 'OrigTN,DestTN,ATTEST,OrigID,X5U' http://127.0.0.1:8090/v1/sign-csv
+```
+
+If OrigID is missing, then a UUID value is generated internally.
+
+Example to get the Identity header value:
+
+```
+curl --data '493044442222,493088886666,A,,https://asipto.lab/v1/pub/cert.pem' http://127.0.0.1:8090/v1/sign-csv
+```
+
+##### HTTP File Server #####
+
+When started with parameter `-httpdir`, the `secsipidx` servers the files from the respective
+directory on the URL path `/v1/pub/`.
 
 ## Copyright ##
 
