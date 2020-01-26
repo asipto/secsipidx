@@ -20,6 +20,7 @@ const secsipidxVersion = "1.0"
 // CLIOptions - structure for command line options
 type CLIOptions struct {
 	httpsrv   string
+	httpdir   string
 	fprvkey   string
 	fpubkey   string
 	header    string
@@ -49,6 +50,7 @@ type CLIOptions struct {
 
 var cliops = CLIOptions{
 	httpsrv:   "",
+	httpdir:   "",
 	fprvkey:   "",
 	fpubkey:   "",
 	header:    "",
@@ -88,6 +90,7 @@ func init() {
 
 	flag.StringVar(&cliops.httpsrv, "httpsrv", cliops.httpsrv, "http server bind address")
 	flag.StringVar(&cliops.httpsrv, "H", cliops.httpsrv, "http server bind address")
+	flag.StringVar(&cliops.httpdir, "httpdir", cliops.httpdir, "directory to serve over http")
 	flag.StringVar(&cliops.fprvkey, "fprvkey", cliops.fprvkey, "path to private key")
 	flag.StringVar(&cliops.fprvkey, "k", cliops.fprvkey, "path to private key")
 	flag.StringVar(&cliops.fpubkey, "fpubkey", cliops.fpubkey, "path to private key")
@@ -392,7 +395,11 @@ func main() {
 	if len(cliops.httpsrv) > 0 {
 		http.HandleFunc("/v1/check", httpHandleV1Check)
 		http.HandleFunc("/v1/sign-csv", httpHandleV1SignCSV)
-		fmt.Printf("strting http server listening on (%s) ...\n", cliops.httpsrv)
+		if len(cliops.httpdir) > 0 {
+			fmt.Printf("serving files over http from directory: %s\n", cliops.httpdir)
+			http.Handle("/v1/pub/", http.StripPrefix("/v1/pub/", http.FileServer(http.Dir(cliops.httpdir))))
+		}
+		fmt.Printf("starting http server listening on (%s) ...\n", cliops.httpsrv)
 		http.ListenAndServe(cliops.httpsrv, nil)
 	}
 
