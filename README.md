@@ -63,9 +63,9 @@ openssl ecparam -name prime256v1 -genkey -noout -out ec256-private.pem
 openssl ec -in ec256-private.pem -pubout -out ec256-public.pem
 ```
 
-### Use Cases ###
+### Usage ###
 
-#### Generate Full Identity Header ####
+#### CLI - Generate Full Identity Header ####
 
 A call from +493044448888 to +493055559999 with attestation level `A`, when the public key can be downloaded from `http://asipto.lab/stir/cert.pem`:
 
@@ -73,7 +73,7 @@ A call from +493044448888 to +493055559999 with attestation level `A`, when the 
 secsipidx -sign-full -orig-tn 493044448888 -dest-tn 493055559999 -attest A -x5u http://asipto.lab/stir/cert.pem -k ec256-private.pem
 ```
 
-#### Check Full Identity Header ####
+#### CLI - Check Full Identity Header ####
 
 Check the identity header stored in file `identity.txt` using the public key in file `ec256-public.pem` with token expire of 3600 seconds
 
@@ -144,6 +144,9 @@ The library is used by `secsipid` module of Kamailio SIP Server (https://www.kam
   * documentation for C API functions
   * run as secure HTTPS server
   * internal cache of downloaded public keys used to verify Identity signatures
+  * blacklisting of unresponsive x5u URLs
+  * support more data formats for HTTP API (e.g., JSON for generating Identity)
+  * configuration file
 
 ## Copyright ##
 
