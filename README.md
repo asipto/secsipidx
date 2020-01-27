@@ -1,23 +1,26 @@
 # secsipidx #
 
-Secure SIP Identity Extensions
+Secure SIP/Telephony Identity Extensions
 
 ## Overview ##
 
-Applications and libraries implementing STIR and SHAKEN (RFC8224, RFC 8588),
-used in SIP/VoIP services.
+Applications and libraries implementing STIR and SHAKEN (RFC8224, RFC8588),
+used in SIP/VoIP services:
+
+  * RFC8224 - https://tools.ietf.org/html/rfc8224
+  * RFC8588 - https://tools.ietf.org/html/rfc8588
 
 Components:
 
   * `secsipid`: Go library - common functions
-  * `csecsipid`: C library - wrapper code to build dynamic or static library and .h include file
-  * `secsipidx`: CLI tool and HTTP API server for checking or building SIP identity
+  * `csecsipid`: C library - wrapper code to build dynamic or static library and .h include files
+  * `secsipidx`: `main.go` - CLI tool and HTTP API server for checking or building SIP identity
 
 ## secsipidx ##
 
 ### Installation ###
 
-Install Golang, guidelines at:
+Install Go language (golang), guidelines at:
 
   * https://golang.org
   * https://golang.org/doc/install
@@ -118,6 +121,29 @@ curl --data '493044442222,493088886666,A,,https://asipto.lab/v1/pub/cert.pem' ht
 
 When started with parameter `-httpdir`, the `secsipidx` servers the files from the respective
 directory on the URL path `/v1/pub/`.
+
+## C API ##
+
+The code to get the C library is located in the `csecsipid` directory.
+
+To generate the .h and static library files, run inside the directory:
+
+```
+make liba
+```
+
+Then the `*.h` and `libsecsipid.a` files can be copied to the folder where it is
+wanted to be used.
+
+The library is used by `secsipid` module of Kamailio SIP Server (https://www.kamailio.org):
+
+  * https://www.kamailio.org/docs/modules/devel/modules/secsipid.html
+
+## To-Do ##
+
+  * documentation for C API functions
+  * run as secure HTTPS server
+  * internal cache of downloaded public keys used to verify Identity signatures
 
 ## Copyright ##
 
