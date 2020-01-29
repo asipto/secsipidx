@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -19,63 +20,69 @@ const secsipidxVersion = "1.0"
 
 // CLIOptions - structure for command line options
 type CLIOptions struct {
-	httpsrv   string
-	httpdir   string
-	fprvkey   string
-	fpubkey   string
-	header    string
-	fheader   string
-	payload   string
-	fpayload  string
-	identity  string
-	fidentity string
-	alg       string
-	ppt       string
-	typ       string
-	x5u       string
-	attest    string
-	desttn    string
-	origtn    string
-	iat       int
-	origid    string
-	check     bool
-	sign      bool
-	signfull  bool
-	jsonparse bool
-	expire    int
-	timeout   int
-	ltest     bool
-	version   bool
+	httpsrv     string
+	httpssrv    string
+	httpspubkey string
+	httpsprvkey string
+	httpdir     string
+	fprvkey     string
+	fpubkey     string
+	header      string
+	fheader     string
+	payload     string
+	fpayload    string
+	identity    string
+	fidentity   string
+	alg         string
+	ppt         string
+	typ         string
+	x5u         string
+	attest      string
+	desttn      string
+	origtn      string
+	iat         int
+	origid      string
+	check       bool
+	sign        bool
+	signfull    bool
+	jsonparse   bool
+	expire      int
+	timeout     int
+	ltest       bool
+	version     bool
 }
 
 var cliops = CLIOptions{
-	httpsrv:   "",
-	httpdir:   "",
-	fprvkey:   "",
-	fpubkey:   "",
-	header:    "",
-	fheader:   "",
-	payload:   "",
-	fpayload:  "",
-	identity:  "",
-	fidentity: "",
-	alg:       "ES256",
-	ppt:       "shaken",
-	typ:       "passport",
-	x5u:       "",
-	attest:    "C",
-	desttn:    "",
-	origtn:    "",
-	iat:       0,
-	origid:    "",
-	check:     false,
-	sign:      false,
-	signfull:  false,
-	jsonparse: false,
-	expire:    0,
-	timeout:   3,
-	ltest:     false,
-	version:   false,
+	httpsrv:     "",
+	httpssrv:    "",
+	httpspubkey: "",
+	httpsprvkey: "",
+	httpdir:     "",
+	fprvkey:     "",
+	fpubkey:     "",
+	header:      "",
+	fheader:     "",
+	payload:     "",
+	fpayload:    "",
+	identity:    "",
+	fidentity:   "",
+	alg:         "ES256",
+	ppt:         "shaken",
+	typ:         "passport",
+	x5u:         "",
+	attest:      "C",
+	desttn:      "",
+	origtn:      "",
+	iat:         0,
+	origid:      "",
+	check:       false,
+	sign:        false,
+	signfull:    false,
+	jsonparse:   false,
+	expire:      0,
+	timeout:     3,
+	ltest:       false,
+	version:     false,
 }
 
 // initialize application components
@@ -88,8 +95,12 @@ func init() {
 		os.Exit(1)
 	}
 
+	flag.StringVar(&cliops.httpsrv, "http-srv", cliops.httpsrv, "http server bind address")
 	flag.StringVar(&cliops.httpsrv, "httpsrv", cliops.httpsrv, "http server bind address")
 	flag.StringVar(&cliops.httpsrv, "H", cliops.httpsrv, "http server bind address")
+	flag.StringVar(&cliops.httpssrv, "https-srv", cliops.httpssrv, "https server bind address")
+	flag.StringVar(&cliops.httpspubkey, "https-pubkey", cliops.httpspubkey, "https server public key")
+	flag.StringVar(&cliops.httpsprvkey, "https-prvkey", cliops.httpsprvkey, "https server private key")
 	flag.StringVar(&cliops.httpdir, "httpdir", cliops.httpdir, "directory to serve over http")
 	flag.StringVar(&cliops.fprvkey, "fprvkey", cliops.fprvkey, "path to private key")
 	flag.StringVar(&cliops.fprvkey, "k", cliops.fprvkey, "path to private key")
@@ -377,6 +388,35 @@ func httpHandleV1SignCSV(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func startHTTPServices() chan error {
+
+	errchan := make(chan error)
+
+	// starting HTTP server
+	if len(cliops.httpsrv) > 0 {
+		go func() {
+			log.Printf("staring HTTP service on: %s ...", cliops.httpsrv)
+
+			if err := http.ListenAndServe(cliops.httpsrv, nil); err != nil {
+				errchan <- err
+			}
+
+		}()
+	}
+
+	// starting HTTPS server
+	if len(cliops.httpssrv) > 0 && len(cliops.httpspubkey) > 0 && len(cliops.httpsprvkey) > 0 {
+		go func() {
+			log.Printf("Staring HTTPS service on: %s ...", cliops.httpssrv)
+			if err := http.ListenAndServeTLS(cliops.httpssrv, cliops.httpspubkey, cliops.httpsprvkey, nil); err != nil {
+				errchan <- err
+			}
+		}()
+	}
+
+	return errchan
+}
+
 func main() {
 	var ret int
 
@@ -392,15 +432,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	if len(cliops.httpsrv) > 0 {
+	if (len(cliops.httpsrv) > 0) || (len(cliops.httpssrv) > 0 && len(cliops.httpspubkey) > 0 && len(cliops.httpsprvkey) > 0) {
 		http.HandleFunc("/v1/check", httpHandleV1Check)
 		http.HandleFunc("/v1/sign-csv", httpHandleV1SignCSV)
 		if len(cliops.httpdir) > 0 {
 			fmt.Printf("serving files over http from directory: %s\n", cliops.httpdir)
 			http.Handle("/v1/pub/", http.StripPrefix("/v1/pub/", http.FileServer(http.Dir(cliops.httpdir))))
 		}
-		fmt.Printf("starting http server listening on (%s) ...\n", cliops.httpsrv)
-		http.ListenAndServe(cliops.httpsrv, nil)
+		fmt.Printf("starting http services ...\n")
+
+		errchan := startHTTPServices()
+		select {
+		case err := <-errchan:
+			log.Printf("unable to start http services due to (error: %v)", err)
+		}
+		os.Exit(1)
 	}
 
 	ret = 0
