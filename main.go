@@ -96,12 +96,11 @@ func init() {
 	}
 
 	flag.StringVar(&cliops.httpsrv, "http-srv", cliops.httpsrv, "http server bind address")
-	flag.StringVar(&cliops.httpsrv, "httpsrv", cliops.httpsrv, "http server bind address")
 	flag.StringVar(&cliops.httpsrv, "H", cliops.httpsrv, "http server bind address")
 	flag.StringVar(&cliops.httpssrv, "https-srv", cliops.httpssrv, "https server bind address")
 	flag.StringVar(&cliops.httpspubkey, "https-pubkey", cliops.httpspubkey, "https server public key")
 	flag.StringVar(&cliops.httpsprvkey, "https-prvkey", cliops.httpsprvkey, "https server private key")
-	flag.StringVar(&cliops.httpdir, "httpdir", cliops.httpdir, "directory to serve over http")
+	flag.StringVar(&cliops.httpdir, "http-dir", cliops.httpdir, "directory to serve over http")
 	flag.StringVar(&cliops.fprvkey, "fprvkey", cliops.fprvkey, "path to private key")
 	flag.StringVar(&cliops.fprvkey, "k", cliops.fprvkey, "path to private key")
 	flag.StringVar(&cliops.fpubkey, "fpubkey", cliops.fpubkey, "path to private key")
