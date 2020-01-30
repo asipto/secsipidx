@@ -67,7 +67,7 @@ openssl ec -in ec256-private.pem -pubout -out ec256-public.pem
 
 #### CLI - Generate Full Identity Header ####
 
-A call from +493044448888 to +493055559999 with attestation level `A`, when the public key can be downloaded from `http://asipto.lab/stir/cert.pem`:
+A call from `+493044448888` to `+493055559999` with attestation level `A`, when the public key can be downloaded from `http://asipto.lab/stir/cert.pem`:
 
 ```
 secsipidx -sign-full -orig-tn 493044448888 -dest-tn 493055559999 -attest A -x5u http://asipto.lab/stir/cert.pem -k ec256-private.pem
@@ -86,7 +86,20 @@ secsipidx -check -fidentity identity.txt -fpubkey ec256-public.pem -expire 3600
 Run `secsipidx` as an HTTP server listening on port `8090` for checking SIP identity with public key from file `ec256-public.pem`:
 
 ```
-secsipidx -httpsrv ":8090" -httpdrv /secsipidx/http/public -fprvkey ec256-private.pem -fpubkey ec256-public.pem -expire 3600 -timeout 5
+secsipidx -http-srv ":8090" -http-dir /secsipidx/http/public -fprvkey ec256-private.pem -fpubkey ec256-public.pem -expire 3600 -timeout 5
+```
+To run `secsipidx` as an HTTPS server on port `8093`, following command line parameters have to be provided:
+
+```
+secsipidx -https-srv ":8093" -https-pubkey /keys/secsipidx-public.key  -https-prvkey /keys/secsipidx-private.key ...
+```
+
+The TLS certificate (public and private keys) can be obtained from services like `Let's Encrypt` or use self-generated ones:
+
+```
+openssl genrsa -out secsipidx-private.key 2048
+openssl ecparam -genkey -name secp384r1 -out secsipidx-private.key
+openssl req -new -x509 -sha256 -key secsipidx-private.key -out secsipidx-public.key -days 365
 ```
 
 ##### Check Identity #####
