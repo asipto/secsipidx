@@ -155,7 +155,6 @@ The library is used by `secsipid` module of Kamailio SIP Server (https://www.kam
 ## To-Do ##
 
   * documentation for C API functions
-  * run as secure HTTPS server
   * internal cache of downloaded public keys used to verify Identity signatures
   * blacklisting of unresponsive x5u URLs
   * support more data formats for HTTP API (e.g., JSON for generating Identity)
