@@ -393,7 +393,7 @@ func SJWTCheckFullIdentity(identityVal string, expireVal int, pubkeyPath string,
 					return -2, fmt.Errorf("invalid value for alg header parameter")
 				}
 			} else if ptoken[0] == "ppt" {
-				if ptoken[1] != "shaken" {
+				if (ptoken[1] != "shaken" && ptoken[1] != `"shaken"`) {
 					return -2, fmt.Errorf("invalid value for ppt header parameter")
 				}
 			} else if ptoken[0] == "info" {
@@ -456,7 +456,7 @@ func SJWTCheckFullIdentityURL(identityVal string, expireVal int, timeoutVal int)
 					return -2, fmt.Errorf("invalid value for alg header parameter")
 				}
 			} else if ptoken[0] == "ppt" {
-				if ptoken[1] != "shaken" {
+				if (ptoken[1] != "shaken" && ptoken[1] != `"shaken"`) {
 					return -2, fmt.Errorf("invalid value for ppt header parameter")
 				}
 			} else if ptoken[0] == "info" {
