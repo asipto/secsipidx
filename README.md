@@ -162,7 +162,7 @@ The library is used by `secsipid` module of Kamailio SIP Server (https://www.kam
 
 ## Copyright ##
 
-License: GPLv2
+License: `BSD 3-Clause Clear License`
 
 Copyright: © 2020 asipto.com
 
