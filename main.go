@@ -50,6 +50,8 @@ type CLIOptions struct {
 	timeout     int
 	ltest       bool
 	version     bool
+	cachedir    string
+	cacheexpire int
 }
 
 var cliops = CLIOptions{
@@ -83,6 +85,8 @@ var cliops = CLIOptions{
 	timeout:     3,
 	ltest:       false,
 	version:     false,
+	cachedir:    "",
+	cacheexpire: 3600,
 }
 
 // initialize application components
@@ -135,6 +139,8 @@ func init() {
 	flag.BoolVar(&cliops.ltest, "ltest", cliops.ltest, "run local basic test")
 	flag.BoolVar(&cliops.ltest, "l", cliops.ltest, "run local basic test")
 	flag.BoolVar(&cliops.version, "version", cliops.version, "print version")
+	flag.StringVar(&cliops.cachedir, "cache-dir", cliops.cachedir, "path to the directory with cached certificates (default: '')")
+	flag.IntVar(&cliops.cacheexpire, "cache-expire", cliops.cacheexpire, "duration of cached certificates (in seconds, default 3600)")
 }
 
 func localTest() {
@@ -429,6 +435,10 @@ func main() {
 	if cliops.ltest {
 		localTest()
 		os.Exit(1)
+	}
+
+	if len(cliops.cachedir) > 0 {
+		secsipid.SetURLFileCacheOptions(cliops.cachedir, cliops.cacheexpire)
 	}
 
 	if (len(cliops.httpsrv) > 0) || (len(cliops.httpssrv) > 0 && len(cliops.httpspubkey) > 0 && len(cliops.httpsprvkey) > 0) {

@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"math/big"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 	"unicode"
@@ -47,10 +48,26 @@ type SJWTPayload struct {
 	OrigID string   `json:"origid"`
 }
 
+type SJWTFileCacheMeta struct {
+	dirPath string
+	expire  int
+}
+
+var urlFileCacheOptions = SJWTFileCacheMeta{
+	dirPath: "",
+	expire:  3600,
+}
+
 var (
 	sES256KeyBits = 256
 	sES256KeySize = 32
 )
+
+// SetFileCacheOptions --
+func SetURLFileCacheOptions(path string, expire int) {
+	urlFileCacheOptions.dirPath = path
+	urlFileCacheOptions.expire = expire
+}
 
 // SJWTRemoveWhiteSpaces --
 func SJWTRemoveWhiteSpaces(s string) string {
@@ -61,6 +78,16 @@ func SJWTRemoveWhiteSpaces(s string) string {
 		}
 	}
 	return string(rout)
+}
+
+// SJWTRemoveWhiteSpaces --
+func SJWTGetURLCacheFilePath(urlVal string) string {
+	filePath := strings.Replace(urlVal, "://", "_", -1)
+	filePath = strings.Replace(filePath, "/", "_", -1)
+	if len(urlFileCacheOptions.dirPath) > 0 {
+		filePath = urlFileCacheOptions.dirPath + "/" + filePath
+	}
+	return filePath
 }
 
 // SJWTParseECPrivateKeyFromPEM Parse PEM encoded Elliptic Curve Private Key Structure
@@ -150,8 +177,37 @@ func SJWTBase64DecodeBytes(seg string) ([]byte, error) {
 	return base64.URLEncoding.DecodeString(seg)
 }
 
+// SJWTGetURLCachedContent --
+func SJWTGetURLCachedContent(urlVal string) ([]byte, error) {
+	filePath := SJWTGetURLCacheFilePath(urlVal)
+
+	fileStat, err := os.Stat(filePath)
+	if err != nil {
+		return nil, err
+	}
+	tnow := time.Now()
+	if int(tnow.Sub(fileStat.ModTime()).Seconds()) > urlFileCacheOptions.expire {
+		os.Remove(filePath)
+		return nil, nil
+	}
+	return ioutil.ReadFile(filePath)
+}
+
+// SJWTSetURLCachedContent --
+func SJWTSetURLCachedContent(urlVal string, data []byte) error {
+	filePath := SJWTGetURLCacheFilePath(urlVal)
+
+	return ioutil.WriteFile(filePath, data, 0640)
+}
+
 // SJWTGetURLContent --
 func SJWTGetURLContent(urlVal string, timeoutVal int) ([]byte, error) {
+	if len(urlFileCacheOptions.dirPath) > 0 {
+		cdata, cerr := SJWTGetURLCachedContent(urlVal)
+		if cdata != nil {
+			return cdata, cerr
+		}
+	}
 	httpClient := http.Client{
 		Timeout: time.Duration(timeoutVal) * time.Second,
 	}
@@ -168,6 +224,10 @@ func SJWTGetURLContent(urlVal string, timeoutVal int) ([]byte, error) {
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read http body failure: %v", err)
+	}
+
+	if len(urlFileCacheOptions.dirPath) > 0 {
+		SJWTSetURLCachedContent(urlVal, data)
 	}
 
 	return data, nil
@@ -393,7 +453,7 @@ func SJWTCheckFullIdentity(identityVal string, expireVal int, pubkeyPath string,
 					return -2, fmt.Errorf("invalid value for alg header parameter")
 				}
 			} else if ptoken[0] == "ppt" {
-				if (ptoken[1] != "shaken" && ptoken[1] != `"shaken"`) {
+				if ptoken[1] != "shaken" && ptoken[1] != `"shaken"` {
 					return -2, fmt.Errorf("invalid value for ppt header parameter")
 				}
 			} else if ptoken[0] == "info" {
@@ -456,7 +516,7 @@ func SJWTCheckFullIdentityURL(identityVal string, expireVal int, timeoutVal int)
 					return -2, fmt.Errorf("invalid value for alg header parameter")
 				}
 			} else if ptoken[0] == "ppt" {
-				if (ptoken[1] != "shaken" && ptoken[1] != `"shaken"`) {
+				if ptoken[1] != "shaken" && ptoken[1] != `"shaken"` {
 					return -2, fmt.Errorf("invalid value for ppt header parameter")
 				}
 			} else if ptoken[0] == "info" {

@@ -48,5 +48,12 @@ func SecSIPIDCheckFull(identityVal *C.char, identityLen C.int, expireVal C.int, 
 	return C.int(ret)
 }
 
+// SecSIPIDSetFileCacheOptions --
+//export SecSIPIDSetFileCacheOptions
+func SecSIPIDSetFileCacheOptions(dirPath *C.char, expireVal C.int) C.int {
+	secsipid.SetURLFileCacheOptions(C.GoString(dirPath), int(expireVal))
+	return C.int(0)
+}
+
 //
 func main() {}
