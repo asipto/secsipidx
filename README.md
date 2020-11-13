@@ -135,6 +135,37 @@ curl --data '493044442222,493088886666,A,,https://asipto.lab/v1/pub/cert.pem' ht
 When started with parameter `-httpdir`, the `secsipidx` servers the files from the respective
 directory on the URL path `/v1/pub/`.
 
+## Certificate Caching ##
+
+There is support for a basic caching mechanism of the public keys in local files.
+
+It can be activated by giving `-cache-dir /path/to/cachedir` cli parameter, how long the cached value is
+considered valid can be controlled with `-cache-expire`.
+
+The c library exports now:
+
+```c
+int SecSIPIDSetFileCacheOptions(char* dirPath, int expireVal);
+```
+
+which can be used to set the two values (the cache dir activates the caching mechanism).
+
+The name of the file in the cache directory is created from URL replacing first `://` with `_` and
+then the rest of `/` also with `_` -- I went this way instead of hashing (or encoding) the url to
+be human readable. Last modified time of the file is used to determine when the value is considered expired.
+
+Kamailio `sexsipid` module was also enhanced with two new parameters to set the cache dir and expire values.
+
+There is no locking/synchronization on accessing (read/write) cache files for the moment,
+this can be done externally, for example with kamailio by using `cfgutils` module:
+
+```c
+$var(url) = $(hdr(Identity){s.rmws}{param.value,info}{s.unbracket});
+lock("$var(url)");
+if(secsipid_check_identity("")) { ... }
+unlock("$var(url)");
+```
+
 ## C API ##
 
 The code to get the C library is located in the `csecsipid` directory.
