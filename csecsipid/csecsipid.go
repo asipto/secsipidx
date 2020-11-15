@@ -55,5 +55,17 @@ func SecSIPIDSetFileCacheOptions(dirPath *C.char, expireVal C.int) C.int {
 	return C.int(0)
 }
 
+// SecSIPIDGetURLContent --
+//export SecSIPIDGetURLContent
+func SecSIPIDGetURLContent(urlVal *C.char, timeoutVal C.int, outPtr **C.char, outLen *C.int) C.int {
+	content, _ := secsipid.SJWTGetURLContent(C.GoString(urlVal), int(timeoutVal))
+	if content != nil {
+		*outPtr = C.CString(string(content))
+		*outLen = C.int(len(string(content)))
+		return C.int(0)
+	}
+	return C.int(-1)
+}
+
 //
 func main() {}

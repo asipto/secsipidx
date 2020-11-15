@@ -84,6 +84,9 @@ extern int SecSIPIDCheckFull(char* identityVal, int identityLen, int expireVal, 
 // SecSIPIDSetFileCacheOptions --
 extern int SecSIPIDSetFileCacheOptions(char* dirPath, int expireVal);
 
+// SecSIPIDGetURLContent --
+extern int SecSIPIDGetURLContent(char* urlVal, int timeoutVal, char** outPtr, int* outLen);
+
 #ifdef __cplusplus
 }
 #endif
