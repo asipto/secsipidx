@@ -462,6 +462,35 @@ func SJWTCheckIdentity(identityVal string, expireVal int, pubkeyPath string, tim
 	return 1, fmt.Errorf("failed to verify - origid (%s) (%d) %v", payload.OrigID, ret, err)
 }
 
+// SJWTGetValidInfoAttr - return info param value of alg and ppt are valid
+func SJWTGetValidInfoAttr(hdrtoken []string) (string, error) {
+	paramInfo := ""
+	for i := 1; i < len(hdrtoken); i++ {
+		ptoken := strings.Split(hdrtoken[i], "=")
+		if len(ptoken) == 2 {
+			if ptoken[0] == "alg" {
+				if ptoken[1] != "ES256" {
+					return "", fmt.Errorf("invalid value for alg header parameter")
+				}
+			} else if ptoken[0] == "ppt" {
+				if ptoken[1] != "shaken" && ptoken[1] != `"shaken"` {
+					return "", fmt.Errorf("invalid value for ppt header parameter")
+				}
+			} else if ptoken[0] == "info" {
+				paramInfo = ptoken[1]
+			}
+		}
+	}
+	if len(paramInfo) <= 2 {
+		return "", fmt.Errorf("invalid value info header parameter")
+	}
+	if paramInfo[0] == '<' && paramInfo[len(paramInfo)-1] == '>' {
+		paramInfo = paramInfo[1 : len(paramInfo)-1]
+	}
+
+	return paramInfo, nil
+}
+
 // SJWTCheckFullIdentity - implements the verify of identity
 func SJWTCheckFullIdentity(identityVal string, expireVal int, pubkeyPath string, timeoutVal int) (int, error) {
 	hdrtoken := strings.Split(SJWTRemoveWhiteSpaces(identityVal), ";")
@@ -476,28 +505,11 @@ func SJWTCheckFullIdentity(identityVal string, expireVal int, pubkeyPath string,
 	}
 
 	paramInfo := ""
-	for i := 1; i < len(hdrtoken); i++ {
-		ptoken := strings.Split(hdrtoken[i], "=")
-		if len(ptoken) == 2 {
-			if ptoken[0] == "alg" {
-				if ptoken[1] != "ES256" {
-					return -2, fmt.Errorf("invalid value for alg header parameter")
-				}
-			} else if ptoken[0] == "ppt" {
-				if ptoken[1] != "shaken" && ptoken[1] != `"shaken"` {
-					return -2, fmt.Errorf("invalid value for ppt header parameter")
-				}
-			} else if ptoken[0] == "info" {
-				paramInfo = ptoken[1]
-			}
-		}
+	paramInfo, err = SJWTGetValidInfoAttr(hdrtoken)
+	if err != nil {
+		return -1, err
 	}
-	if len(paramInfo) <= 2 {
-		return 0, nil
-	}
-	if paramInfo[0] == '<' && paramInfo[len(paramInfo)-1] == '>' {
-		paramInfo = paramInfo[1 : len(paramInfo)-1]
-	}
+
 	btoken := strings.Split(strings.TrimSpace(hdrtoken[0]), ".")
 
 	if len(btoken[0]) == 0 {
@@ -517,28 +529,9 @@ func SJWTCheckFullIdentityURL(identityVal string, expireVal int, timeoutVal int)
 		return -1, fmt.Errorf("missing parts of the message header")
 	}
 
-	paramInfo := ""
-	for i := 1; i < len(hdrtoken); i++ {
-		ptoken := strings.Split(hdrtoken[i], "=")
-		if len(ptoken) == 2 {
-			if ptoken[0] == "alg" {
-				if ptoken[1] != "ES256" {
-					return -2, fmt.Errorf("invalid value for alg header parameter")
-				}
-			} else if ptoken[0] == "ppt" {
-				if ptoken[1] != "shaken" && ptoken[1] != `"shaken"` {
-					return -2, fmt.Errorf("invalid value for ppt header parameter")
-				}
-			} else if ptoken[0] == "info" {
-				paramInfo = ptoken[1]
-			}
-		}
-	}
-	if len(paramInfo) <= 2 {
-		return -1, fmt.Errorf("invalid value info header parameter")
-	}
-	if paramInfo[0] == '<' && paramInfo[len(paramInfo)-1] == '>' {
-		paramInfo = paramInfo[1 : len(paramInfo)-1]
+	paramInfo, err1 := SJWTGetValidInfoAttr(hdrtoken)
+	if err1 != nil {
+		return -1, err1
 	}
 
 	pubkey, err := SJWTGetURLContent(paramInfo, timeoutVal)
