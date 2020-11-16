@@ -395,6 +395,30 @@ func SJWTEncodeText(headerJSON string, payloadJSON string, prvkeyPath string) (s
 	return signingValue + "." + signatureValue, nil
 }
 
+// SJWTCheckAttributes - implements the verify of attributes
+func SJWTCheckAttributes(bToken string, paramInfo string) (int, error) {
+	vHeader, err := SJWTBase64DecodeString(bToken)
+
+	header := SJWTHeader{}
+	err = json.Unmarshal([]byte(vHeader), &header)
+	if err != nil {
+		return -3, err
+	}
+	if len(header.Alg) > 0 && header.Alg != "ES256" {
+		return -2, fmt.Errorf("invalid value for alg in json header")
+	}
+	if len(header.Ppt) > 0 && header.Ppt != "shaken" {
+		return -2, fmt.Errorf("invalid value for ppt in json header")
+	}
+	if len(header.Typ) > 0 && header.Typ != "passport" {
+		return -2, fmt.Errorf("invalid value for typ in json header")
+	}
+	if len(header.X5u) > 0 && header.X5u != paramInfo {
+		return -2, fmt.Errorf("mismatching value for x5u and info attributes")
+	}
+	return 0, nil
+}
+
 // SJWTCheckIdentity - implements the verify of identity
 func SJWTCheckIdentity(identityVal string, expireVal int, pubkeyPath string, timeoutVal int) (int, error) {
 	var err error
@@ -472,28 +496,7 @@ func SJWTCheckFullIdentity(identityVal string, expireVal int, pubkeyPath string,
 	if len(btoken[0]) == 0 {
 		return 0, nil
 	}
-	vHeader := ""
-	vHeader, err = SJWTBase64DecodeString(btoken[0])
-
-	header := SJWTHeader{}
-	err = json.Unmarshal([]byte(vHeader), &header)
-	if err != nil {
-		return -3, err
-	}
-	if len(header.Alg) > 0 && header.Alg != "ES256" {
-		return -2, fmt.Errorf("invalid value for alg in json header")
-	}
-	if len(header.Ppt) > 0 && header.Ppt != "shaken" {
-		return -2, fmt.Errorf("invalid value for ppt in json header")
-	}
-	if len(header.Typ) > 0 && header.Typ != "passport" {
-		return -2, fmt.Errorf("invalid value for typ in json header")
-	}
-	if len(header.X5u) > 0 && header.X5u != paramInfo {
-		return -2, fmt.Errorf("mismatching value for x5u and info attributes")
-	}
-
-	return 0, nil
+	return SJWTCheckAttributes(btoken[0], paramInfo)
 }
 
 // SJWTCheckFullIdentityURL - implements the verify of identity using URL
@@ -548,28 +551,7 @@ func SJWTCheckFullIdentityURL(identityVal string, expireVal int, timeoutVal int)
 		return ret, err
 	}
 
-	vHeader := ""
-	vHeader, err = SJWTBase64DecodeString(btoken[0])
-
-	header := SJWTHeader{}
-	err = json.Unmarshal([]byte(vHeader), &header)
-	if err != nil {
-		return -3, err
-	}
-	if len(header.Alg) > 0 && header.Alg != "ES256" {
-		return -2, fmt.Errorf("invalid value for alg in json header")
-	}
-	if len(header.Ppt) > 0 && header.Ppt != "shaken" {
-		return -2, fmt.Errorf("invalid value for ppt in json header")
-	}
-	if len(header.Typ) > 0 && header.Typ != "passport" {
-		return -2, fmt.Errorf("invalid value for typ in json header")
-	}
-	if len(header.X5u) > 0 && header.X5u != paramInfo {
-		return -2, fmt.Errorf("mismatching value for x5u and info attributes")
-	}
-
-	return ret, nil
+	return SJWTCheckAttributes(btoken[0], paramInfo)
 }
 
 // SJWTGetIdentity --
