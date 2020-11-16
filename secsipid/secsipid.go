@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"math/big"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -439,9 +440,15 @@ func SJWTCheckIdentity(identityVal string, expireVal int, pubkeyPath string, tim
 	}
 
 	if strings.HasPrefix(pubkeyPath, "http://") || strings.HasPrefix(pubkeyPath, "https://") {
-		pubkey, _ = SJWTGetURLContent(pubkeyPath, timeoutVal)
+		pubkey, err = SJWTGetURLContent(pubkeyPath, timeoutVal)
+	} else if strings.HasPrefix(pubkeyPath, "file://") {
+		fileUrl, _ := url.Parse(pubkeyPath)
+		pubkey, err = ioutil.ReadFile(fileUrl.Path)
 	} else {
-		pubkey, _ = ioutil.ReadFile(pubkeyPath)
+		pubkey, err = ioutil.ReadFile(pubkeyPath)
+	}
+	if err != nil {
+		return -1, err
 	}
 
 	if ecdsaPubKey, err = SJWTParseECPublicKeyFromPEM(pubkey); err != nil {
