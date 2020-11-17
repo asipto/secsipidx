@@ -502,6 +502,10 @@ func SJWTGetValidInfoAttr(hdrtoken []string) (string, error) {
 
 // SJWTCheckFullIdentity - implements the verify of identity
 func SJWTCheckFullIdentity(identityVal string, expireVal int, pubkeyPath string, timeoutVal int) (int, error) {
+	if len(pubkeyPath) == 0 {
+		return SJWTCheckFullIdentityURL(identityVal, expireVal, timeoutVal)
+	}
+
 	hdrtoken := strings.Split(SJWTRemoveWhiteSpaces(identityVal), ";")
 
 	ret, err := SJWTCheckIdentity(hdrtoken[0], expireVal, pubkeyPath, timeoutVal)
