@@ -48,6 +48,26 @@ func SecSIPIDCheckFull(identityVal *C.char, identityLen C.int, expireVal C.int, 
 	return C.int(ret)
 }
 
+// SecSIPIDCheckFullPubKey --
+//export SecSIPIDCheckFullPubKey
+func SecSIPIDCheckFullPubKey(identityVal *C.char, identityLen C.int, expireVal C.int, pubkeyVal *C.char, pubkeyLen C.int) C.int {
+	var sIdentity string
+	var sPubKeyVal string
+	if identityLen == 0 {
+		sIdentity = C.GoString(identityVal)
+	} else {
+		sIdentity = C.GoStringN(identityVal, identityLen)
+	}
+	if pubkeyLen == 0 {
+		sPubKeyVal = C.GoString(pubkeyVal)
+	} else {
+		sPubKeyVal = C.GoStringN(pubkeyVal, pubkeyLen)
+	}
+	ret, _ := secsipid.SJWTCheckFullIdentityPubKey(sIdentity, int(expireVal), sPubKeyVal)
+	return C.int(ret)
+
+}
+
 // SecSIPIDSetFileCacheOptions --
 //export SecSIPIDSetFileCacheOptions
 func SecSIPIDSetFileCacheOptions(dirPath *C.char, expireVal C.int) C.int {

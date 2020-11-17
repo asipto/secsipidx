@@ -420,8 +420,8 @@ func SJWTCheckAttributes(bToken string, paramInfo string) (int, error) {
 	return 0, nil
 }
 
-// SJWTCheckIdentity - implements the verify of identity
-func SJWTCheckIdentity(identityVal string, expireVal int, pubkeyPath string, timeoutVal int) (int, error) {
+// SJWTCheckIdentityPKMode - implements the verify of identity
+func SJWTCheckIdentityPKMode(identityVal string, expireVal int, pubkeyVal string, pubkeyMode int, timeoutVal int) (int, error) {
 	var err error
 	var ret int
 	var ecdsaPubKey *ecdsa.PublicKey
@@ -439,16 +439,20 @@ func SJWTCheckIdentity(identityVal string, expireVal int, pubkeyPath string, tim
 		return -1, err
 	}
 
-	if strings.HasPrefix(pubkeyPath, "http://") || strings.HasPrefix(pubkeyPath, "https://") {
-		pubkey, err = SJWTGetURLContent(pubkeyPath, timeoutVal)
-	} else if strings.HasPrefix(pubkeyPath, "file://") {
-		fileUrl, _ := url.Parse(pubkeyPath)
-		pubkey, err = ioutil.ReadFile(fileUrl.Path)
+	if pubkeyMode == 1 {
+		pubkey = []byte(pubkeyVal)
 	} else {
-		pubkey, err = ioutil.ReadFile(pubkeyPath)
-	}
-	if err != nil {
-		return -1, err
+		if strings.HasPrefix(pubkeyVal, "http://") || strings.HasPrefix(pubkeyVal, "https://") {
+			pubkey, err = SJWTGetURLContent(pubkeyVal, timeoutVal)
+		} else if strings.HasPrefix(pubkeyVal, "file://") {
+			fileUrl, _ := url.Parse(pubkeyVal)
+			pubkey, err = ioutil.ReadFile(fileUrl.Path)
+		} else {
+			pubkey, err = ioutil.ReadFile(pubkeyVal)
+		}
+		if err != nil {
+			return -1, err
+		}
 	}
 
 	if ecdsaPubKey, err = SJWTParseECPublicKeyFromPEM(pubkey); err != nil {
@@ -460,6 +464,11 @@ func SJWTCheckIdentity(identityVal string, expireVal int, pubkeyPath string, tim
 	}
 
 	return 1, fmt.Errorf("failed to verify - origid (%s) (%d) %v", payload.OrigID, ret, err)
+}
+
+// SJWTCheckIdentity - implements the verify of identity
+func SJWTCheckIdentity(identityVal string, expireVal int, pubkeyPath string, timeoutVal int) (int, error) {
+	return SJWTCheckIdentityPKMode(identityVal, expireVal, pubkeyPath, 0, timeoutVal)
 }
 
 // SJWTGetValidInfoAttr - return info param value of alg and ppt are valid
@@ -551,6 +560,33 @@ func SJWTCheckFullIdentityURL(identityVal string, expireVal int, timeoutVal int)
 		return ret, err
 	}
 
+	return SJWTCheckAttributes(btoken[0], paramInfo)
+}
+
+// SJWTCheckFullIdentityPubKey - implements the verify of identity using public key
+func SJWTCheckFullIdentityPubKey(identityVal string, expireVal int, pubkeyVal string) (int, error) {
+	hdrtoken := strings.Split(SJWTRemoveWhiteSpaces(identityVal), ";")
+
+	ret, err := SJWTCheckIdentityPKMode(hdrtoken[0], expireVal, pubkeyVal, 1, 5)
+	if ret != 0 {
+		return ret, err
+	}
+
+	if len(hdrtoken) == 1 {
+		return 0, nil
+	}
+
+	paramInfo := ""
+	paramInfo, err = SJWTGetValidInfoAttr(hdrtoken)
+	if err != nil {
+		return -1, err
+	}
+
+	btoken := strings.Split(strings.TrimSpace(hdrtoken[0]), ".")
+
+	if len(btoken[0]) == 0 {
+		return 0, nil
+	}
 	return SJWTCheckAttributes(btoken[0], paramInfo)
 }
 

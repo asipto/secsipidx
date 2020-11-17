@@ -81,6 +81,9 @@ extern int SecSIPIDCheck(char* identityVal, int identityLen, int expireVal, char
 // SecSIPIDCheckFull --
 extern int SecSIPIDCheckFull(char* identityVal, int identityLen, int expireVal, char* pubkeyPath, int timeoutVal);
 
+// SecSIPIDCheckFullPubKey --
+extern int SecSIPIDCheckFullPubKey(char* identityVal, int identityLen, int expireVal, char* pubkeyVal, int pubkeyLen);
+
 // SecSIPIDSetFileCacheOptions --
 extern int SecSIPIDSetFileCacheOptions(char* dirPath, int expireVal);
 
