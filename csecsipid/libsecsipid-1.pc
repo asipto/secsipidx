@@ -1,0 +1,10 @@
+prefix=/usr
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: secsipid
+Description: libraries implementing STIR and SHAKEN (RFC8224, RFC8588)
+Version: 1.0.0
+Libs: -L${libdir} -lsecsipid-1
+Cflags: -I${includedir}
