@@ -12,6 +12,7 @@ libso:
 	go build -ldflags="${LD_FLAGS}" -o ${NAME} -buildmode=c-shared csecsipid.go
 	mv ${NAME} ${REAL_NAME}
 	ln -s ${REAL_NAME} ${SONAME}
+	ln -s ${REAL_NAME} ${NAME}
 liba:
 	go build -o libsecsipid.a -buildmode=c-archive csecsipid.go
 
