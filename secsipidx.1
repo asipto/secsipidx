@@ -1,0 +1,114 @@
+.TH SECSIPIDX 1 "2021-01-07"
+.\" Please adjust this date whenever revising the manpage.
+.SH NAME
+secsipidx \- CLI tool and HTTP API server for checking or building SIP identity
+.SH SYNOPSIS
+.B secsipidx
+.RI [ options ]
+.SH DESCRIPTION
+TODO
+.SH OPTIONS
+.TP
+.B \-H, \-http-srv
+http server bind address
+.TP
+.B \-https-srv
+https server bind address
+.TP
+.B \-https-pubkey
+https server public key
+.TP
+.B \-https-prvkey
+https server private key
+.TP
+.B \-http-dir
+directory to serve over http
+.TP
+.B \-k, \-fprvkey
+path to private key
+.TP
+.B \-p, \-fpubkey
+path to public key
+.TP
+.B \-fheader
+path to file with header value in JSON format
+.TP
+.B \-header
+header value in JSON format
+.TP
+.B \-fpayload
+path to file with payload value in JSON format
+.TP
+.B \-payload
+payload value in JSON format
+.TP
+.B \-fidentity
+path to file with identity value
+.TP
+.B \-identity
+identity value
+.TP
+.B \-alg
+encryption algorithm (default: ES256)
+.TP
+.B \-ppt
+used extension (default: shaken)
+.TP
+.B \-typ
+token type (default: passport)
+.TP
+.B \-x5u
+value of the field with the location of the certificate used to sign the token
+(default: '')
+.TP
+.B \-a, \-attest
+attestation level (default: 'C')
+.TP
+.B \-d, \-dest-tn
+destination (called) number (default: '')
+.TP
+.B \-o, \-orig-th
+origination (calling) number (default: '')
+.TP
+.B \-iat
+timestamp when the token was created
+.TP
+.B \-orig-id
+origination identifier (default: '')
+.TP
+.B \-c, \-check
+check validity of the signature
+.TP
+.B \-s, \-sign
+sign the header and payload
+.TP
+.B \-S, -sign-full
+sign the header and payload, with parameters
+.TP
+.B \-json-parse
+parse and re-serialize JSON header and payaload values
+.TP
+.B \-expire
+duration of token validity (in seconds)
+.TP
+.B \-timeout
+http get timeout (in seconds, default: 3)
+.TP
+.B \-l, \-ltest
+run local basic test
+.TP
+.B \-version
+print version
+.TP
+.B \-cache-dir
+path to the directory with cached certificates (default: '')
+.TP
+.B \-cache-expire
+duration of cached certificates (in seconds, default 3600)
+.TP
+.SH EXAMPLES
+TODO
+.SH AUTHOR
+.PP
+This manual page was written by Victor Seva <vseva@debian.org>,
+for the Debian project (and may be used by others).
