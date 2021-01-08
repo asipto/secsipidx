@@ -1,12 +1,15 @@
 .TH SECSIPIDX 1 "2021-01-07"
 .\" Please adjust this date whenever revising the manpage.
 .SH NAME
-secsipidx \- CLI tool and HTTP API server for checking or building SIP identity
+secsipidx \- CLI tool and HTTP API server to check or build SIP identity headers
 .SH SYNOPSIS
 .B secsipidx
 .RI [ options ]
 .SH DESCRIPTION
-TODO
+Command line application to check or build SIP identity headers as per IETF
+RFC8224 and RFC8588 (STIR and SHAKEN). It also can be run in daemon mode,
+providing HTTP REST API to ease the adoption of STIR and SHAKEN by external
+applications.
 .SH OPTIONS
 .TP
 .B \-H, \-http-srv
