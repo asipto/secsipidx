@@ -1,0 +1,14 @@
+# Common defines for Makefile build system
+#
+
+override makefile_defs_included:=1
+
+PREFIX ?= /usr/local
+BASENAME ?= secsipid
+TOOLNAME ?= secsipidx
+
+GO=go
+
+OS := $(shell uname -s | sed -e s/SunOS/solaris/ -e s/CYGWIN.*/cygwin/ \
+		 | tr "[A-Z]" "[a-z]" | tr "/" "_")
+
