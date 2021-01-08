@@ -18,4 +18,4 @@ liba:
 
 clean:
 	rm -f ${NAME} ${REAL_NAME} ${SONAME}
-	rm -f linsecsipid.a
+	rm -f libsecsipid.a
