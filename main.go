@@ -94,7 +94,7 @@ func init() {
 	// command line arguments
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage of %s (v%s):\n", filepath.Base(os.Args[0]), secsipidxVersion)
-		fmt.Fprintf(os.Stderr, "    (eacsome options have short and long version)\n")
+		fmt.Fprintf(os.Stderr, "    (some options have short and long version)\n")
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
@@ -107,8 +107,8 @@ func init() {
 	flag.StringVar(&cliops.httpdir, "http-dir", cliops.httpdir, "directory to serve over http")
 	flag.StringVar(&cliops.fprvkey, "fprvkey", cliops.fprvkey, "path to private key")
 	flag.StringVar(&cliops.fprvkey, "k", cliops.fprvkey, "path to private key")
-	flag.StringVar(&cliops.fpubkey, "fpubkey", cliops.fpubkey, "path to private key")
-	flag.StringVar(&cliops.fpubkey, "p", cliops.fpubkey, "path to private key")
+	flag.StringVar(&cliops.fpubkey, "fpubkey", cliops.fpubkey, "path to public key")
+	flag.StringVar(&cliops.fpubkey, "p", cliops.fpubkey, "path to public key")
 	flag.StringVar(&cliops.fheader, "fheader", cliops.fheader, "path to file with header value in JSON format")
 	flag.StringVar(&cliops.header, "header", cliops.header, "header value in JSON format")
 	flag.StringVar(&cliops.fpayload, "fpayload", cliops.fpayload, "path to file with payload value in JSON format")
@@ -135,7 +135,7 @@ func init() {
 	flag.BoolVar(&cliops.signfull, "S", cliops.sign, "sign the header and payload, with parameters")
 	flag.BoolVar(&cliops.jsonparse, "json-parse", cliops.jsonparse, "parse and re-serialize JSON header and payaload values")
 	flag.IntVar(&cliops.expire, "expire", cliops.expire, "duration of token validity (in seconds)")
-	flag.IntVar(&cliops.timeout, "timeout", cliops.timeout, "http get timeout (in seconds)")
+	flag.IntVar(&cliops.timeout, "timeout", cliops.timeout, "http get timeout (in seconds, default: 3)")
 	flag.BoolVar(&cliops.ltest, "ltest", cliops.ltest, "run local basic test")
 	flag.BoolVar(&cliops.ltest, "l", cliops.ltest, "run local basic test")
 	flag.BoolVar(&cliops.version, "version", cliops.version, "print version")
