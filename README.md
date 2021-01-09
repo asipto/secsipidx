@@ -44,6 +44,18 @@ go build
 # ./secsipidx ...
 ```
 
+Install using the `make` command:
+
+```
+go get -d github.com/asipto/secsipidx
+cd $GOPATH/src/github.com/asipto/secsipidx/
+make
+make install
+```
+
+The `secsipidx` tool is deployed to `/usr/local/bin/`. The `make install`
+deploys also the libraries and C headers.
+
 ## Usage ##
 
 To see the available command line options, run:
