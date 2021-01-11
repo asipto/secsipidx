@@ -1,6 +1,9 @@
 # secsipidx #
 
-Secure SIP/Telephony Identity Extensions
+Secure SIP/Telephony Identity Extensions.
+
+Last Version: 1.1.0
+Release: Jan 11, 2021
 
 ## Overview ##
 
