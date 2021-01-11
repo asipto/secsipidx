@@ -195,10 +195,14 @@ The library is used by `secsipid` module of Kamailio SIP Server (https://www.kam
 
   * https://www.kamailio.org/docs/modules/devel/modules/secsipid.html
 
+The prototype of functions exported to C API and documentation are int the file:
+
+  * https://github.com/asipto/secsipidx/blob/main/csecsipid/libsecsipid.h
+
 ## To-Do ##
 
-  * documentation for C API functions
-  * internal cache of downloaded public keys used to verify Identity signatures
+  * external cache (e.g., use of Redis) of downloaded public keys used to verify
+  Identity signatures
   * blacklisting of unresponsive x5u URLs
   * support more data formats for HTTP API (e.g., JSON for generating Identity)
   * configuration file
