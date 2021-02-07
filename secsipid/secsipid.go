@@ -594,8 +594,8 @@ func SJWTCheckFullIdentityPubKey(identityVal string, expireVal int, pubkeyVal st
 	return SJWTCheckAttributes(btoken[0], paramInfo)
 }
 
-// SJWTGetIdentity --
-func SJWTGetIdentity(origTN string, destTN string, attestVal string, origID string, x5uVal string, prvkeyPath string) (string, error) {
+// SJWTGetIdentityPrvKey --
+func SJWTGetIdentityPrvKey(origTN string, destTN string, attestVal string, origID string, x5uVal string, prvkeyData []byte) (string, error) {
 	var err error
 	var vOrigID string
 
@@ -627,14 +627,8 @@ func SJWTGetIdentity(origTN string, destTN string, attestVal string, origID stri
 		OrigID: vOrigID,
 	}
 
-	var prvkey []byte
-	prvkey, err = ioutil.ReadFile(prvkeyPath)
-	if err != nil {
-		return "", fmt.Errorf("Unable to read private key file: %v", err)
-	}
-
 	var ecdsaPrvKey *ecdsa.PrivateKey
-	if ecdsaPrvKey, err = SJWTParseECPrivateKeyFromPEM(prvkey); err != nil {
+	if ecdsaPrvKey, err = SJWTParseECPrivateKeyFromPEM(prvkeyData); err != nil {
 		return "", fmt.Errorf("Unable to parse ECDSA private key: %v", err)
 	}
 	token := SJWTEncode(header, payload, ecdsaPrvKey)
@@ -643,4 +637,16 @@ func SJWTGetIdentity(origTN string, destTN string, attestVal string, origID stri
 		return token + ";info=<" + header.X5u + ">;alg=ES256;ppt=shaken", nil
 	}
 	return "", nil
+}
+
+// SJWTGetIdentity --
+func SJWTGetIdentity(origTN string, destTN string, attestVal string, origID string, x5uVal string, prvkeyPath string) (string, error) {
+	var prvkey []byte
+	var err error
+
+	prvkey, err = ioutil.ReadFile(prvkeyPath)
+	if err != nil {
+		return "", fmt.Errorf("Unable to read private key file: %v", err)
+	}
+	return SJWTGetIdentityPrvKey(origTN, destTN, attestVal, origID, x5uVal, prvkey)
 }
