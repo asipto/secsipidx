@@ -39,6 +39,24 @@ func SecSIPIDGetIdentity(origTN *C.char, destTN *C.char, attestVal *C.char, orig
 	return C.int(len(signature))
 }
 
+// SecSIPIDGetIdentityPrvKey --
+// Generate the Identity header content using the input attributes
+// * origTN - calling number
+// * destTN - called number
+// * attestVal - attestation level
+// * origID - unique ID for tracking purposes, if empty string a UUID is generated
+// * x5uVal - location of public certificate
+// * prvkeyData - content of private key to be used to generate the signature
+// * outPtr - to be set to the pointer containing the output (it is a
+//   0-terminated string); the `*outPtr` must be freed after use
+// * return: the length of `*outPtr`
+//export SecSIPIDGetIdentityPrvKey
+func SecSIPIDGetIdentityPrvKey(origTN *C.char, destTN *C.char, attestVal *C.char, origID *C.char, x5uVal *C.char, prvkeyData *C.char, outPtr **C.char) C.int {
+	signature, _ := secsipid.SJWTGetIdentityPrvKey(C.GoString(origTN), C.GoString(destTN), C.GoString(attestVal), C.GoString(origID), C.GoString(x5uVal), []byte(C.GoString(prvkeyData)))
+	*outPtr = C.CString(signature)
+	return C.int(len(signature))
+}
+
 // SecSIPIDCheck --
 // check the Identity header value
 // * identityVal - identity header value

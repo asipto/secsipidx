@@ -92,6 +92,19 @@ extern int SecSIPIDSignJSONHP(char* headerJSON, char* payloadJSON, char* prvkeyP
 // * return: the length of `*outPtr`
 extern int SecSIPIDGetIdentity(char* origTN, char* destTN, char* attestVal, char* origID, char* x5uVal, char* prvkeyPath, char** outPtr);
 
+// SecSIPIDGetIdentityPrvKey --
+// Generate the Identity header content using the input attributes
+// * origTN - calling number
+// * destTN - called number
+// * attestVal - attestation level
+// * origID - unique ID for tracking purposes, if empty string a UUID is generated
+// * x5uVal - location of public certificate
+// * prvkeyData - content of private key to be used to generate the signature
+// * outPtr - to be set to the pointer containing the output (it is a
+//   0-terminated string); the `*outPtr` must be freed after use
+// * return: the length of `*outPtr`
+extern int SecSIPIDGetIdentityPrvKey(char* origTN, char* destTN, char* attestVal, char* origID, char* x5uVal, char* prvkeyData, char** outPtr);
+
 // SecSIPIDCheck --
 // check the Identity header value
 // * identityVal - identity header value
