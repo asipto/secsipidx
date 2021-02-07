@@ -627,9 +627,13 @@ func SJWTGetIdentity(origTN string, destTN string, attestVal string, origID stri
 		OrigID: vOrigID,
 	}
 
-	prvkey, _ := ioutil.ReadFile(prvkeyPath)
-	var ecdsaPrvKey *ecdsa.PrivateKey
+	var prvkey []byte
+	prvkey, err = ioutil.ReadFile(prvkeyPath)
+	if err != nil {
+		return "", fmt.Errorf("Unable to read private key file: %v", err)
+	}
 
+	var ecdsaPrvKey *ecdsa.PrivateKey
 	if ecdsaPrvKey, err = SJWTParseECPrivateKeyFromPEM(prvkey); err != nil {
 		return "", fmt.Errorf("Unable to parse ECDSA private key: %v", err)
 	}
