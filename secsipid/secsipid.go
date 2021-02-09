@@ -634,7 +634,7 @@ func SJWTGetIdentityPrvKey(origTN string, destTN string, attestVal string, origI
 	token := SJWTEncode(header, payload, ecdsaPrvKey)
 
 	if len(token) > 0 {
-		return token + ";info=<" + header.X5u + ">;>alg=ES256;ppt=shaken", nil
+		return token + ";info=<" + header.X5u + ">;alg=ES256;ppt=shaken", nil
 	}
 	return "", nil
 }
