@@ -49,14 +49,14 @@ type SJWTPayload struct {
 	OrigID string   `json:"origid"`
 }
 
-type SJWTFileCacheMeta struct {
-	dirPath string
-	expire  int
+type SJWTLibOptions struct {
+	cacheDirPath string
+	cacheExpire  int
 }
 
-var urlFileCacheOptions = SJWTFileCacheMeta{
-	dirPath: "",
-	expire:  3600,
+var globalLibOptions = SJWTLibOptions{
+	cacheDirPath: "",
+	cacheExpire:  3600,
 }
 
 var (
@@ -66,8 +66,8 @@ var (
 
 // SetFileCacheOptions --
 func SetURLFileCacheOptions(path string, expire int) {
-	urlFileCacheOptions.dirPath = path
-	urlFileCacheOptions.expire = expire
+	globalLibOptions.cacheDirPath = path
+	globalLibOptions.cacheExpire = expire
 }
 
 // SJWTRemoveWhiteSpaces --
@@ -85,8 +85,8 @@ func SJWTRemoveWhiteSpaces(s string) string {
 func SJWTGetURLCacheFilePath(urlVal string) string {
 	filePath := strings.Replace(urlVal, "://", "_", -1)
 	filePath = strings.Replace(filePath, "/", "_", -1)
-	if len(urlFileCacheOptions.dirPath) > 0 {
-		filePath = urlFileCacheOptions.dirPath + "/" + filePath
+	if len(globalLibOptions.cacheDirPath) > 0 {
+		filePath = globalLibOptions.cacheDirPath + "/" + filePath
 	}
 	return filePath
 }
@@ -187,7 +187,7 @@ func SJWTGetURLCachedContent(urlVal string) ([]byte, error) {
 		return nil, err
 	}
 	tnow := time.Now()
-	if int(tnow.Sub(fileStat.ModTime()).Seconds()) > urlFileCacheOptions.expire {
+	if int(tnow.Sub(fileStat.ModTime()).Seconds()) > globalLibOptions.cacheExpire {
 		os.Remove(filePath)
 		return nil, nil
 	}
@@ -203,7 +203,7 @@ func SJWTSetURLCachedContent(urlVal string, data []byte) error {
 
 // SJWTGetURLContent --
 func SJWTGetURLContent(urlVal string, timeoutVal int) ([]byte, error) {
-	if len(urlFileCacheOptions.dirPath) > 0 {
+	if len(globalLibOptions.cacheDirPath) > 0 {
 		cdata, cerr := SJWTGetURLCachedContent(urlVal)
 		if cdata != nil {
 			return cdata, cerr
@@ -227,7 +227,7 @@ func SJWTGetURLContent(urlVal string, timeoutVal int) ([]byte, error) {
 		return nil, fmt.Errorf("read http body failure: %v", err)
 	}
 
-	if len(urlFileCacheOptions.dirPath) > 0 {
+	if len(globalLibOptions.cacheDirPath) > 0 {
 		SJWTSetURLCachedContent(urlVal, data)
 	}
 
