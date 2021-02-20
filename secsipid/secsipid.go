@@ -70,6 +70,22 @@ func SetURLFileCacheOptions(path string, expire int) {
 	globalLibOptions.cacheExpire = expire
 }
 
+// SJWTLibOptSetS --
+func SJWTLibOptSetS(optname string, optval string) {
+	switch optname {
+	case "CacheDirPath":
+		globalLibOptions.cacheDirPath = optval
+	}
+}
+
+// SJWTLibOptSetN --
+func SJWTLibOptSetN(optname string, optval int) {
+	switch optname {
+	case "CacheExpires":
+		globalLibOptions.cacheExpire = optval
+	}
+}
+
 // SJWTRemoveWhiteSpaces --
 func SJWTRemoveWhiteSpaces(s string) string {
 	rout := make([]rune, 0, len(s))
