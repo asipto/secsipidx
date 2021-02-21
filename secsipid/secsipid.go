@@ -71,19 +71,23 @@ func SetURLFileCacheOptions(path string, expire int) {
 }
 
 // SJWTLibOptSetS --
-func SJWTLibOptSetS(optname string, optval string) {
+func SJWTLibOptSetS(optname string, optval string) int {
 	switch optname {
 	case "CacheDirPath":
 		globalLibOptions.cacheDirPath = optval
+		return 0
 	}
+	return -1
 }
 
 // SJWTLibOptSetN --
-func SJWTLibOptSetN(optname string, optval int) {
+func SJWTLibOptSetN(optname string, optval int) int {
 	switch optname {
 	case "CacheExpires":
 		globalLibOptions.cacheExpire = optval
+		return 0
 	}
+	return -1
 }
 
 // SJWTRemoveWhiteSpaces --
