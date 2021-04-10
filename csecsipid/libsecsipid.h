@@ -156,6 +156,26 @@ extern int SecSIPIDSetFileCacheOptions(char* dirPath, int expireVal);
 // * return: 0 - on success; -1 - on failure
 extern int SecSIPIDGetURLContent(char* urlVal, int timeoutVal, char** outPtr, int* outLen);
 
+// SecSIPIDOptSetS --
+// set a string option for the library
+// * optName - name of the option
+// * optVal - value of the option
+// * return: 0 if option was set, -1 otherwise
+extern int SecSIPIDOptSetS(char* optName, char* optVal);
+
+// SecSIPIDOptSetN --
+// set a number (integer) option for the library
+// * optName - name of the option
+// * optVal - value of the option
+// * 0 if option was set, -1 otherwise
+extern int SecSIPIDOptSetN(char* optName, int optVal);
+
+// SecSIPIDOptSetV --
+// set an option for the library
+// * optNameVal - string with name=value of the option
+// * 0 if option was set, -1 otherwise
+extern int SecSIPIDOptSetV(char* optNameVal);
+
 #ifdef __cplusplus
 }
 #endif

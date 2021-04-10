@@ -158,5 +158,37 @@ func SecSIPIDGetURLContent(urlVal *C.char, timeoutVal C.int, outPtr **C.char, ou
 	return C.int(-1)
 }
 
+// SecSIPIDOptSetS --
+// set a string option for the library
+// * optName - name of the option
+// * optVal - value of the option
+// * return: 0 if option was set, -1 otherwise
+//export SecSIPIDOptSetS
+func SecSIPIDOptSetS(optName *C.char, optVal *C.char) C.int {
+	ret := secsipid.SJWTLibOptSetS(C.GoString(optName), C.GoString(optVal))
+	return C.int(ret)
+}
+
+// SecSIPIDOptSetN --
+// set a number (integer) option for the library
+// * optName - name of the option
+// * optVal - value of the option
+// * 0 if option was set, -1 otherwise
+//export SecSIPIDOptSetN
+func SecSIPIDOptSetN(optName *C.char, optVal C.int) C.int {
+	ret := secsipid.SJWTLibOptSetN(C.GoString(optName), int(optVal))
+	return C.int(ret)
+}
+
+// SecSIPIDOptSetV --
+// set an option for the library
+// * optNameVal - string with name=value of the option
+// * 0 if option was set, -1 otherwise
+//export SecSIPIDOptSetV
+func SecSIPIDOptSetV(optNameVal *C.char) C.int {
+	ret := secsipid.SJWTLibOptSetV(C.GoString(optNameVal))
+	return C.int(ret)
+}
+
 //
 func main() {}
