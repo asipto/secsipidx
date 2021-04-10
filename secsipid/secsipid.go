@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -86,6 +87,21 @@ func SJWTLibOptSetN(optname string, optval int) int {
 	case "CacheExpires":
 		globalLibOptions.cacheExpire = optval
 		return 0
+	}
+	return -1
+}
+
+// SJWTLibOptSetV --
+func SJWTLibOptSetV(optnameval string) int {
+	optArray := strings.SplitN(optnameval, "=", 2)
+	optName := optArray[0]
+	optVal := optArray[1]
+	switch optName {
+	case "CacheExpires":
+		intVal, _ := strconv.Atoi(optVal)
+		return SJWTLibOptSetN(optName, intVal)
+	case "CacheDirPath":
+		return SJWTLibOptSetS(optName, optVal)
 	}
 	return -1
 }
