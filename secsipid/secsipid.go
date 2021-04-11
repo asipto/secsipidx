@@ -53,11 +53,17 @@ type SJWTPayload struct {
 type SJWTLibOptions struct {
 	cacheDirPath string
 	cacheExpire  int
+	certCAFile   string
+	certCAInter  string
+	certVerify   int
 }
 
 var globalLibOptions = SJWTLibOptions{
 	cacheDirPath: "",
 	cacheExpire:  3600,
+	certCAFile:   "",
+	certCAInter:  "",
+	certVerify:   0,
 }
 
 var (
@@ -77,6 +83,12 @@ func SJWTLibOptSetS(optname string, optval string) int {
 	case "CacheDirPath":
 		globalLibOptions.cacheDirPath = optval
 		return 0
+	case "CertCAFile":
+		globalLibOptions.certCAFile = optval
+		return 0
+	case "CertCAInter":
+		globalLibOptions.certCAInter = optval
+		return 0
 	}
 	return -1
 }
@@ -86,6 +98,9 @@ func SJWTLibOptSetN(optname string, optval int) int {
 	switch optname {
 	case "CacheExpires":
 		globalLibOptions.cacheExpire = optval
+		return 0
+	case "CertVerify":
+		globalLibOptions.certVerify = optval
 		return 0
 	}
 	return -1
@@ -97,10 +112,10 @@ func SJWTLibOptSetV(optnameval string) int {
 	optName := optArray[0]
 	optVal := optArray[1]
 	switch optName {
-	case "CacheExpires":
+	case "CacheExpires", "CertVerify":
 		intVal, _ := strconv.Atoi(optVal)
 		return SJWTLibOptSetN(optName, intVal)
-	case "CacheDirPath":
+	case "CacheDirPath", "CertCAFile", "CertCAInter":
 		return SJWTLibOptSetS(optName, optVal)
 	}
 	return -1
@@ -125,6 +140,87 @@ func SJWTGetURLCacheFilePath(urlVal string) string {
 		filePath = globalLibOptions.cacheDirPath + "/" + filePath
 	}
 	return filePath
+}
+
+// SJWTPubKeyVerify -
+func SJWTPubKeyVerify(pubKey []byte) (int, error) {
+	if globalLibOptions.certVerify == 0 {
+		return 1, nil
+	}
+
+	var rootCAs *x509.CertPool
+	var interCAs *x509.CertPool
+	var err error
+	rootCAs = nil
+	interCAs = nil
+	if (globalLibOptions.certVerify & (1 << 0)) != 0 {
+		// Get the SystemCertPool, continue with an empty pool on error
+		rootCAs, err = x509.SystemCertPool()
+		if rootCAs == nil {
+			return 0, err
+		}
+	}
+	if (globalLibOptions.certVerify & (1 << 1)) != 0 {
+		if len(globalLibOptions.certCAFile) <= 0 {
+			return 0, errors.New("no CA file")
+		}
+
+		if rootCAs == nil {
+			rootCAs = x509.NewCertPool()
+			if rootCAs == nil {
+				return 0, errors.New("no new ca cert pool")
+			}
+		}
+		var certsCA []byte
+		// Read in the cert file
+		certsCA, err = ioutil.ReadFile(globalLibOptions.certCAFile)
+		if err != nil {
+			return 0, errors.New("failed to read CA file")
+		}
+
+		// Append our cert to the system pool
+		if ok := rootCAs.AppendCertsFromPEM(certsCA); !ok {
+			return 0, errors.New("failed to append CA file")
+		}
+	}
+	if (globalLibOptions.certVerify & (1 << 2)) != 0 {
+		if len(globalLibOptions.certCAInter) <= 0 {
+			return 0, errors.New("no intermediate CA file")
+		}
+		interCAs = x509.NewCertPool()
+		if interCAs == nil {
+			return 0, errors.New("no new ca intermediate cert pool")
+		}
+		var certsCA []byte
+		// Read in the cert file
+		certsCA, err = ioutil.ReadFile(globalLibOptions.certCAInter)
+		if err != nil {
+			return 0, errors.New("failed to read intermediate CA file")
+		}
+
+		// Append our cert to the system pool
+		if ok := interCAs.AppendCertsFromPEM(certsCA); !ok {
+			return 0, errors.New("failed to append intermediate CA file")
+		}
+	}
+	opts := x509.VerifyOptions{
+		Roots:         rootCAs,
+		Intermediates: interCAs,
+		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+	}
+
+	certBlock, _ := pem.Decode(pubKey)
+	if certBlock == nil {
+		return 0, errors.New("failed to parse certificate PEM")
+	}
+	var certVal *x509.Certificate
+	certVal, err = x509.ParseCertificate(certBlock.Bytes)
+
+	if _, err = certVal.Verify(opts); err != nil {
+		return 0, err
+	}
+
+	return 1, nil
 }
 
 // SJWTParseECPrivateKeyFromPEM Parse PEM encoded Elliptic Curve Private Key Structure
@@ -491,6 +587,11 @@ func SJWTCheckIdentityPKMode(identityVal string, expireVal int, pubkeyVal string
 		}
 	}
 
+	ret, err = SJWTPubKeyVerify(pubkey)
+	if ret != 1 {
+		return -1, err
+	}
+
 	if ecdsaPubKey, err = SJWTParseECPublicKeyFromPEM(pubkey); err != nil {
 		return -1, err
 	}
@@ -584,6 +685,11 @@ func SJWTCheckFullIdentityURL(identityVal string, expireVal int, timeoutVal int)
 	}
 
 	pubkey, err := SJWTGetURLContent(paramInfo, timeoutVal)
+
+	ret, err = SJWTPubKeyVerify(pubkey)
+	if ret != 1 {
+		return -1, err
+	}
 
 	if ecdsaPubKey, err = SJWTParseECPublicKeyFromPEM(pubkey); err != nil {
 		return -1, err
