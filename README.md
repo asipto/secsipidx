@@ -150,6 +150,25 @@ curl --data '493044442222,493088886666,A,,https://asipto.lab/v1/pub/cert.pem' ht
 When started with parameter `-httpdir`, the `secsipidx` servers the files from the respective
 directory on the URL path `/v1/pub/`.
 
+### Certificate Verification ###
+
+The certificate retrieved from peers can be verified against system CAs or a list of
+CAs stored in a file. The path to custom CAs files can be set via `--ca-file` and
+`--ca-inter` parameters.
+
+The verification mode can be set via `--cert-verify` parameter, which represents
+an integer value build from the bit flags:
+
+  * `1` (`1<<0`) - verify against system root CAs
+  * `2` (`1<<1`) - verify against custom root CAs in the file specified by `--ca-file`
+  * `4` (`1<<2`) - verify against custom intermediate CAs in the file specified
+  by `--ca-inter`
+
+The value can be combined, so `--cert-verify 3` means that the verification is
+done against system room CAs and the custom CAs in the file specified by `--ca-file`.
+
+If `--cert-verify` is `0`, no verification is performed.
+
 ## Certificate Caching ##
 
 There is support for a basic caching mechanism of the public keys in local files.
