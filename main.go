@@ -52,6 +52,9 @@ type CLIOptions struct {
 	version     bool
 	cachedir    string
 	cacheexpire int
+	cafile      string
+	cainter     string
+	certverify  int
 }
 
 var cliops = CLIOptions{
@@ -87,6 +90,9 @@ var cliops = CLIOptions{
 	version:     false,
 	cachedir:    "",
 	cacheexpire: 3600,
+	cafile:      "",
+	cainter:     "",
+	certverify:  0,
 }
 
 // initialize application components
@@ -141,6 +147,9 @@ func init() {
 	flag.BoolVar(&cliops.version, "version", cliops.version, "print version")
 	flag.StringVar(&cliops.cachedir, "cache-dir", cliops.cachedir, "path to the directory with cached certificates (default: '')")
 	flag.IntVar(&cliops.cacheexpire, "cache-expire", cliops.cacheexpire, "duration of cached certificates (in seconds, default 3600)")
+	flag.StringVar(&cliops.cafile, "ca-file", cliops.cafile, "file with root CA certificates in pem format")
+	flag.StringVar(&cliops.cainter, "ca-inter", cliops.cainter, "file with intermediate CA certificates in pem format")
+	flag.IntVar(&cliops.certverify, "cert-verify", cliops.certverify, "certificate verification mode (default 0")
 }
 
 func localTest() {
@@ -439,6 +448,16 @@ func main() {
 
 	if len(cliops.cachedir) > 0 {
 		secsipid.SetURLFileCacheOptions(cliops.cachedir, cliops.cacheexpire)
+	}
+
+	if len(cliops.cafile) > 0 {
+		secsipid.SJWTLibOptSetS("CertCAFile", cliops.cafile)
+	}
+	if len(cliops.cainter) > 0 {
+		secsipid.SJWTLibOptSetS("CertCAInter", cliops.cainter)
+	}
+	if cliops.certverify > 0 {
+		secsipid.SJWTLibOptSetN("CertVerify", cliops.certverify)
 	}
 
 	if (len(cliops.httpsrv) > 0) || (len(cliops.httpssrv) > 0 && len(cliops.httpspubkey) > 0 && len(cliops.httpsprvkey) > 0) {
