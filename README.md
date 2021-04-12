@@ -159,13 +159,15 @@ CAs stored in a file. The path to custom CAs files can be set via `--ca-file` an
 The verification mode can be set via `--cert-verify` parameter, which represents
 an integer value build from the bit flags:
 
-  * `1` (`1<<0`) - verify against system root CAs
-  * `2` (`1<<1`) - verify against custom root CAs in the file specified by `--ca-file`
-  * `4` (`1<<2`) - verify against custom intermediate CAs in the file specified
+  * `1` (`1<<0`) - verify time validity (not expired and not before validity date)
+  * `2` (`1<<1`) - verify against system root CAs
+  * `4` (`1<<2`) - verify against custom root CAs in the file specified by `--ca-file`
+  * `8` (`1<<3`) - verify against custom intermediate CAs in the file specified
   by `--ca-inter`
 
-The value can be combined, so `--cert-verify 3` means that the verification is
-done against system room CAs and the custom CAs in the file specified by `--ca-file`.
+The value can be combined, so `--cert-verify 7` means that the verification is
+done against system room CAs and the custom CAs in the file specified by `--ca-file`,
+together with time validity checks.
 
 If `--cert-verify` is `0`, no verification is performed.
 
