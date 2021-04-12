@@ -368,6 +368,9 @@ func SJWTGetURLContent(urlVal string, timeoutVal int) ([]byte, error) {
 
 // SJWTGetValidPayload --
 func SJWTGetValidPayload(base64Payload string, expireVal int) (*SJWTPayload, error) {
+	if len(base64Payload) == 0 {
+		return nil, errors.New("empty payload")
+	}
 	decodedPayload, payloadErr := SJWTBase64DecodeString(base64Payload)
 	if payloadErr != nil {
 		return nil, fmt.Errorf("invalid payload: %s", payloadErr.Error())
@@ -379,7 +382,7 @@ func SJWTGetValidPayload(base64Payload string, expireVal int) (*SJWTPayload, err
 		return nil, fmt.Errorf("invalid payload: %s", err.Error())
 	}
 
-	if payload.IAT != 0 && time.Now().Unix() > payload.IAT+int64(expireVal) {
+	if payload.IAT == 0 || time.Now().Unix() > payload.IAT+int64(expireVal) {
 		return nil, errors.New("expired token")
 	}
 
@@ -675,7 +678,7 @@ func SJWTCheckFullIdentityURL(identityVal string, expireVal int, timeoutVal int)
 
 	hdrtoken := strings.Split(SJWTRemoveWhiteSpaces(identityVal), ";")
 
-	if len(hdrtoken) == 1 {
+	if len(hdrtoken) <= 1 {
 		return -1, fmt.Errorf("missing parts of the message header")
 	}
 
@@ -697,8 +700,18 @@ func SJWTCheckFullIdentityURL(identityVal string, expireVal int, timeoutVal int)
 
 	btoken := strings.Split(strings.TrimSpace(hdrtoken[0]), ".")
 
+	if len(btoken) != 3 {
+		return -1, fmt.Errorf("invalid token - must contain header, payload and signature")
+	}
+
 	if len(btoken[0]) == 0 {
-		return -1, fmt.Errorf("ino json header part")
+		return -1, fmt.Errorf("no json header part")
+	}
+
+	var payload *SJWTPayload
+	payload, err = SJWTGetValidPayload(btoken[1], expireVal)
+	if payload != nil || err != nil {
+		return -1, err
 	}
 
 	ret, err = SJWTVerifyWithPubKey(btoken[0]+"."+btoken[1], btoken[2], ecdsaPubKey)
