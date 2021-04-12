@@ -151,16 +151,32 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 	var rootCAs *x509.CertPool
 	var interCAs *x509.CertPool
 	var err error
+
+	certBlock, _ := pem.Decode(pubKey)
+	if certBlock == nil {
+		return 0, errors.New("failed to parse certificate PEM")
+	}
+	var certVal *x509.Certificate
+	certVal, err = x509.ParseCertificate(certBlock.Bytes)
+
+	if (globalLibOptions.certVerify & (1 << 0)) != 0 {
+		if !time.Now().Before(certVal.NotAfter) {
+			return 0, errors.New("certificate expired")
+		} else if !time.Now().After(certVal.NotBefore) {
+			return 0, errors.New("certificate not valid yet")
+		}
+	}
+
 	rootCAs = nil
 	interCAs = nil
-	if (globalLibOptions.certVerify & (1 << 0)) != 0 {
+	if (globalLibOptions.certVerify & (1 << 1)) != 0 {
 		// Get the SystemCertPool, continue with an empty pool on error
 		rootCAs, err = x509.SystemCertPool()
 		if rootCAs == nil {
 			return 0, err
 		}
 	}
-	if (globalLibOptions.certVerify & (1 << 1)) != 0 {
+	if (globalLibOptions.certVerify & (1 << 2)) != 0 {
 		if len(globalLibOptions.certCAFile) <= 0 {
 			return 0, errors.New("no CA file")
 		}
@@ -183,7 +199,7 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 			return 0, errors.New("failed to append CA file")
 		}
 	}
-	if (globalLibOptions.certVerify & (1 << 2)) != 0 {
+	if (globalLibOptions.certVerify & (1 << 3)) != 0 {
 		if len(globalLibOptions.certCAInter) <= 0 {
 			return 0, errors.New("no intermediate CA file")
 		}
@@ -208,13 +224,6 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 		Intermediates: interCAs,
 		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 	}
-
-	certBlock, _ := pem.Decode(pubKey)
-	if certBlock == nil {
-		return 0, errors.New("failed to parse certificate PEM")
-	}
-	var certVal *x509.Certificate
-	certVal, err = x509.ParseCertificate(certBlock.Bytes)
 
 	if _, err = certVal.Verify(opts); err != nil {
 		return 0, err
