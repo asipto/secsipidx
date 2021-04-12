@@ -223,6 +223,20 @@ The prototype of functions exported to C API and documentation are int the file:
 
   * https://github.com/asipto/secsipidx/blob/main/csecsipid/libsecsipid.h
 
+### C Library Options ###
+
+The library options that can be set with `SecSIPIDOptSetS()`, `SecSIPIDOptSetN()`
+or `SecSIPIDOptSetV()`:
+
+  * `CacheDirPath` (str) - the path to the folder where to store cached certificates
+  that are downloaded from peers
+  * `CacheExpires` (int) - number of seconds after which cached certificates are
+  invalidated
+  * `CertVerify` (int) - the certification verification mode, see the section
+  `Certificate Verification` above
+  * `CertCAFile` (str) - the path with the custom root CA certificates
+  * `CertCAInter` (str) - the path with the custom intermediate CA certificates
+
 ## To-Do ##
 
   * external cache (e.g., use of Redis) of downloaded public keys used to verify
