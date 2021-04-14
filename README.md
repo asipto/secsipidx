@@ -164,6 +164,7 @@ an integer value build from the bit flags:
   * `4` (`1<<2`) - verify against custom root CAs in the file specified by `--ca-file`
   * `8` (`1<<3`) - verify against custom intermediate CAs in the file specified
   by `--ca-inter`
+  * `16` (`1<<4`) - verify against certificate revocation list
 
 The value can be combined, so `--cert-verify 7` means that the verification is
 done against system room CAs and the custom CAs in the file specified by `--ca-file`,
@@ -236,6 +237,7 @@ or `SecSIPIDOptSetV()`:
   `Certificate Verification` above
   * `CertCAFile` (str) - the path with the custom root CA certificates
   * `CertCAInter` (str) - the path with the custom intermediate CA certificates
+  * `CertCRLFile` (str) - the path with the certificate revocation list
 
 ## To-Do ##
 
