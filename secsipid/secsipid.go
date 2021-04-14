@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
@@ -55,6 +56,7 @@ type SJWTLibOptions struct {
 	cacheExpire  int
 	certCAFile   string
 	certCAInter  string
+	certCRLFile  string
 	certVerify   int
 }
 
@@ -63,6 +65,7 @@ var globalLibOptions = SJWTLibOptions{
 	cacheExpire:  3600,
 	certCAFile:   "",
 	certCAInter:  "",
+	certCRLFile:  "",
 	certVerify:   0,
 }
 
@@ -85,6 +88,9 @@ func SJWTLibOptSetS(optname string, optval string) int {
 		return 0
 	case "CertCAFile":
 		globalLibOptions.certCAFile = optval
+		return 0
+	case "CertCRLFile":
+		globalLibOptions.certCRLFile = optval
 		return 0
 	case "CertCAInter":
 		globalLibOptions.certCAInter = optval
@@ -115,7 +121,7 @@ func SJWTLibOptSetV(optnameval string) int {
 	case "CacheExpires", "CertVerify":
 		intVal, _ := strconv.Atoi(optVal)
 		return SJWTLibOptSetN(optName, intVal)
-	case "CacheDirPath", "CertCAFile", "CertCAInter":
+	case "CacheDirPath", "CertCAFile", "CertCAInter", "CertCRLFile":
 		return SJWTLibOptSetS(optName, optVal)
 	}
 	return -1
@@ -227,6 +233,26 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 
 	if _, err = certVal.Verify(opts); err != nil {
 		return 0, err
+	}
+
+	if (globalLibOptions.certVerify & (1 << 4)) != 0 {
+		if len(globalLibOptions.certCRLFile) <= 0 {
+			return 0, errors.New("no CRL file")
+		}
+		var rootCRL *pkix.CertificateList
+		rootCRL = nil
+		var certsCRLData []byte
+		// Read in the cert file
+		certsCRLData, err = ioutil.ReadFile(globalLibOptions.certCRLFile)
+		if err != nil {
+			return 0, errors.New("failed to read CRL file")
+		}
+		rootCRL, err = x509.ParseCRL(certsCRLData)
+		for _, revoked := range rootCRL.TBSCertList.RevokedCertificates {
+			if certVal.SerialNumber.Cmp(revoked.SerialNumber) == 0 {
+				return 0, errors.New("serial number match - certificate is revoked")
+			}
+		}
 	}
 
 	return 1, nil
