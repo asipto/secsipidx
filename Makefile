@@ -17,7 +17,7 @@ lib:
 
 .PHONY: install-tool
 install-tool:
-	cp ${TOOLNAME} ${PREFIX}/bin/
+	cp ${TOOLNAME} ${DESTDIR}${PREFIX}/bin/
 
 .PHONY: install-lib
 install-lib:
@@ -33,10 +33,11 @@ install-lib-all: install-lib install-dev
 
 .PHONY: install-dirs
 install-dirs:
-	mkdir -p ${PREFIX}
-	mkdir -p ${PREFIX}/bin
-	mkdir -p ${PREFIX}/lib
-	mkdir -p ${PREFIX}/include
+	mkdir -p ${DESTDIR}${PREFIX}
+	mkdir -p ${DESTDIR}${PREFIX}/bin
+	mkdir -p ${DESTDIR}${PREFIX}/lib
+	mkdir -p ${DESTDIR}${PREFIX}/lib/pkgconfig
+	mkdir -p ${DESTDIR}${PREFIX}/include
 
 .PHONY: install
 install: install-dirs install-tool install-lib install-dev
