@@ -57,7 +57,7 @@ make install
 ```
 
 The `secsipidx` tool is deployed to `/usr/local/bin/`. The `make install`
-deploys also the libraries and C headers.
+deploys also the libraries and `C` headers.
 
 ## Usage ##
 
@@ -137,9 +137,9 @@ Prototype:
 curl --data 'OrigTN,DestTN,ATTEST,OrigID,X5U' http://127.0.0.1:8090/v1/sign-csv
 ```
 
-If OrigID is missing, then a UUID value is generated internally.
+If `OrigID` is missing, then a `UUID` value is generated internally.
 
-Example to get the Identity header value:
+Example to get the `Identity` header value:
 
 ```
 curl --data '493044442222,493088886666,A,,https://asipto.lab/v1/pub/cert.pem' http://127.0.0.1:8090/v1/sign-csv
@@ -179,7 +179,7 @@ There is support for a basic caching mechanism of the public keys in local files
 It can be activated by giving `-cache-dir /path/to/cachedir` cli parameter, how long the cached value is
 considered valid can be controlled with `-cache-expire`.
 
-The c library exports now:
+The C library exports now:
 
 ```c
 int SecSIPIDSetFileCacheOptions(char* dirPath, int expireVal);
@@ -191,10 +191,10 @@ The name of the file in the cache directory is created from URL replacing first 
 then the rest of `/` also with `_` -- I went this way instead of hashing (or encoding) the url to
 be human readable. Last modified time of the file is used to determine when the value is considered expired.
 
-Kamailio `sexsipid` module was also enhanced with two new parameters to set the cache dir and expire values.
+Kamailio `secsipid` module was also enhanced with two new parameters to set the cache dir and expire values.
 
 There is no locking/synchronization on accessing (read/write) cache files for the moment,
-this can be done externally, for example with kamailio by using `cfgutils` module:
+this can be done externally, for example with Kamailio by using `cfgutils` module:
 
 ```c
 $var(url) = $(hdr(Identity){s.rmws}{param.value,info}{s.unbracket});
@@ -205,9 +205,9 @@ unlock("$var(url)");
 
 ## C API ##
 
-The code to get the C library is located in the `csecsipid` directory.
+The code to get the `C` library is located in the `csecsipid` directory.
 
-To generate the .h and static library files, run inside the directory:
+To generate the `.h` and static library files, run inside the directory:
 
 ```
 make liba
@@ -220,7 +220,7 @@ The library is used by `secsipid` module of Kamailio SIP Server (https://www.kam
 
   * https://www.kamailio.org/docs/modules/devel/modules/secsipid.html
 
-The prototype of functions exported to C API and documentation are int the file:
+The prototype of functions exported to `C` API and documentation are int the file:
 
   * https://github.com/asipto/secsipidx/blob/main/csecsipid/libsecsipid.h
 
@@ -251,7 +251,7 @@ or `SecSIPIDOptSetV()`:
 
 License: `BSD 3-Clause Clear License`
 
-Copyright: © 2020 asipto.com
+Copyright: © 2020-2021 asipto.com
 
 ## Contributing ##
 
