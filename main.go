@@ -54,6 +54,7 @@ type CLIOptions struct {
 	cacheexpire int
 	cafile      string
 	cainter     string
+	crlfile     string
 	certverify  int
 }
 
@@ -92,6 +93,7 @@ var cliops = CLIOptions{
 	cacheexpire: 3600,
 	cafile:      "",
 	cainter:     "",
+	crlfile:     "",
 	certverify:  0,
 }
 
@@ -149,6 +151,7 @@ func init() {
 	flag.IntVar(&cliops.cacheexpire, "cache-expire", cliops.cacheexpire, "duration of cached certificates (in seconds, default 3600)")
 	flag.StringVar(&cliops.cafile, "ca-file", cliops.cafile, "file with root CA certificates in pem format")
 	flag.StringVar(&cliops.cainter, "ca-inter", cliops.cainter, "file with intermediate CA certificates in pem format")
+	flag.StringVar(&cliops.crlfile, "crl-file", cliops.crlfile, "file with CRL in pem format")
 	flag.IntVar(&cliops.certverify, "cert-verify", cliops.certverify, "certificate verification mode (default 0")
 }
 
@@ -455,6 +458,9 @@ func main() {
 	}
 	if len(cliops.cainter) > 0 {
 		secsipid.SJWTLibOptSetS("CertCAInter", cliops.cainter)
+	}
+	if len(cliops.crlfile) > 0 {
+		secsipid.SJWTLibOptSetS("CertCRLFile", cliops.crlfile)
 	}
 	if cliops.certverify > 0 {
 		secsipid.SJWTLibOptSetN("CertVerify", cliops.certverify)
