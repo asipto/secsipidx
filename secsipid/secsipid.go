@@ -24,6 +24,26 @@ import (
 	"github.com/google/uuid"
 )
 
+// return and error code values
+const (
+	SJWTRetOK = 0
+	// generic errors
+	SJWTRetErr = -1
+	// certificate errors: -100..-200
+	SJWTRetErrCertInvalid        = -101
+	SJWTRetErrCertInvalidFormat  = -102
+	SJWTRetErrCertExpired        = -103
+	SJWTRetErrCertBeforeValidity = -104
+	SJWTRetErrCertProcessing     = -105
+	SJWTRetErrCertNoCAFile       = -106
+	SJWTRetErrCertReadCAFile     = -107
+	SJWTRetErrCertNoCAInter      = -108
+	SJWTRetErrCertReadCAInter    = -109
+	SJWTRetErrCertNoCRLFile      = -110
+	SJWTRetErrCertReadCRLFile    = -111
+	SJWTRetErrCertRevoked        = -112
+)
+
 // SJWTHeader - header for JWT
 type SJWTHeader struct {
 	Alg string `json:"alg"`
@@ -96,7 +116,7 @@ func SJWTLibOptSetS(optname string, optval string) int {
 		globalLibOptions.certCAInter = optval
 		return 0
 	}
-	return -1
+	return SJWTRetErr
 }
 
 // SJWTLibOptSetN --
@@ -109,7 +129,7 @@ func SJWTLibOptSetN(optname string, optval int) int {
 		globalLibOptions.certVerify = optval
 		return 0
 	}
-	return -1
+	return SJWTRetErr
 }
 
 // SJWTLibOptSetV --
@@ -124,7 +144,7 @@ func SJWTLibOptSetV(optnameval string) int {
 	case "CacheDirPath", "CertCAFile", "CertCAInter", "CertCRLFile":
 		return SJWTLibOptSetS(optName, optVal)
 	}
-	return -1
+	return SJWTRetErr
 }
 
 // SJWTRemoveWhiteSpaces --
@@ -151,7 +171,7 @@ func SJWTGetURLCacheFilePath(urlVal string) string {
 // SJWTPubKeyVerify -
 func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 	if globalLibOptions.certVerify == 0 {
-		return 1, nil
+		return SJWTRetOK, nil
 	}
 
 	var rootCAs *x509.CertPool
@@ -160,16 +180,16 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 
 	certBlock, _ := pem.Decode(pubKey)
 	if certBlock == nil {
-		return 0, errors.New("failed to parse certificate PEM")
+		return SJWTRetErrCertInvalidFormat, errors.New("failed to parse certificate PEM")
 	}
 	var certVal *x509.Certificate
 	certVal, err = x509.ParseCertificate(certBlock.Bytes)
 
 	if (globalLibOptions.certVerify & (1 << 0)) != 0 {
 		if !time.Now().Before(certVal.NotAfter) {
-			return 0, errors.New("certificate expired")
+			return SJWTRetErrCertExpired, errors.New("certificate expired")
 		} else if !time.Now().After(certVal.NotBefore) {
-			return 0, errors.New("certificate not valid yet")
+			return SJWTRetErrCertBeforeValidity, errors.New("certificate not valid yet")
 		}
 	}
 
@@ -179,50 +199,50 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 		// Get the SystemCertPool, continue with an empty pool on error
 		rootCAs, err = x509.SystemCertPool()
 		if rootCAs == nil {
-			return 0, err
+			return SJWTRetErrCertProcessing, err
 		}
 	}
 	if (globalLibOptions.certVerify & (1 << 2)) != 0 {
 		if len(globalLibOptions.certCAFile) <= 0 {
-			return 0, errors.New("no CA file")
+			return SJWTRetErrCertNoCAFile, errors.New("no CA file")
 		}
 
 		if rootCAs == nil {
 			rootCAs = x509.NewCertPool()
 			if rootCAs == nil {
-				return 0, errors.New("no new ca cert pool")
+				return SJWTRetErrCertProcessing, errors.New("no new ca cert pool")
 			}
 		}
 		var certsCA []byte
 		// Read in the cert file
 		certsCA, err = ioutil.ReadFile(globalLibOptions.certCAFile)
 		if err != nil {
-			return 0, errors.New("failed to read CA file")
+			return SJWTRetErrCertReadCAFile, errors.New("failed to read CA file")
 		}
 
 		// Append our cert to the system pool
 		if ok := rootCAs.AppendCertsFromPEM(certsCA); !ok {
-			return 0, errors.New("failed to append CA file")
+			return SJWTRetErrCertProcessing, errors.New("failed to append CA file")
 		}
 	}
 	if (globalLibOptions.certVerify & (1 << 3)) != 0 {
 		if len(globalLibOptions.certCAInter) <= 0 {
-			return 0, errors.New("no intermediate CA file")
+			return SJWTRetErrCertNoCAInter, errors.New("no intermediate CA file")
 		}
 		interCAs = x509.NewCertPool()
 		if interCAs == nil {
-			return 0, errors.New("no new ca intermediate cert pool")
+			return SJWTRetErrCertProcessing, errors.New("no new ca intermediate cert pool")
 		}
 		var certsCA []byte
 		// Read in the cert file
 		certsCA, err = ioutil.ReadFile(globalLibOptions.certCAInter)
 		if err != nil {
-			return 0, errors.New("failed to read intermediate CA file")
+			return SJWTRetErrCertReadCAInter, errors.New("failed to read intermediate CA file")
 		}
 
 		// Append our cert to the system pool
 		if ok := interCAs.AppendCertsFromPEM(certsCA); !ok {
-			return 0, errors.New("failed to append intermediate CA file")
+			return SJWTRetErrCertProcessing, errors.New("failed to append intermediate CA file")
 		}
 	}
 	opts := x509.VerifyOptions{
@@ -232,12 +252,12 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 	}
 
 	if _, err = certVal.Verify(opts); err != nil {
-		return 0, err
+		return SJWTRetErrCertInvalid, err
 	}
 
 	if (globalLibOptions.certVerify & (1 << 4)) != 0 {
 		if len(globalLibOptions.certCRLFile) <= 0 {
-			return 0, errors.New("no CRL file")
+			return SJWTRetErrCertNoCRLFile, errors.New("no CRL file")
 		}
 		var rootCRL *pkix.CertificateList
 		rootCRL = nil
@@ -245,17 +265,17 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 		// Read in the cert file
 		certsCRLData, err = ioutil.ReadFile(globalLibOptions.certCRLFile)
 		if err != nil {
-			return 0, errors.New("failed to read CRL file")
+			return SJWTRetErrCertReadCRLFile, errors.New("failed to read CRL file")
 		}
 		rootCRL, err = x509.ParseCRL(certsCRLData)
 		for _, revoked := range rootCRL.TBSCertList.RevokedCertificates {
 			if certVal.SerialNumber.Cmp(revoked.SerialNumber) == 0 {
-				return 0, errors.New("serial number match - certificate is revoked")
+				return SJWTRetErrCertRevoked, errors.New("serial number match - certificate is revoked")
 			}
 		}
 	}
 
-	return 1, nil
+	return SJWTRetOK, nil
 }
 
 // SJWTParseECPrivateKeyFromPEM Parse PEM encoded Elliptic Curve Private Key Structure
@@ -626,7 +646,7 @@ func SJWTCheckIdentityPKMode(identityVal string, expireVal int, pubkeyVal string
 	}
 
 	ret, err = SJWTPubKeyVerify(pubkey)
-	if ret != 1 {
+	if ret != SJWTRetOK {
 		return -1, err
 	}
 
@@ -725,7 +745,7 @@ func SJWTCheckFullIdentityURL(identityVal string, expireVal int, timeoutVal int)
 	pubkey, err := SJWTGetURLContent(paramInfo, timeoutVal)
 
 	ret, err = SJWTPubKeyVerify(pubkey)
-	if ret != 1 {
+	if ret != SJWTRetOK {
 		return -1, err
 	}
 
