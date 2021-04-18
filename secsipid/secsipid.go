@@ -29,7 +29,7 @@ const (
 	SJWTRetOK = 0
 	// generic errors
 	SJWTRetErr = -1
-	// certificate errors: -100..-200
+	// certificate errors: -100..-199
 	SJWTRetErrCertInvalid        = -101
 	SJWTRetErrCertInvalidFormat  = -102
 	SJWTRetErrCertExpired        = -103
@@ -42,6 +42,17 @@ const (
 	SJWTRetErrCertNoCRLFile      = -110
 	SJWTRetErrCertReadCRLFile    = -111
 	SJWTRetErrCertRevoked        = -112
+	// identity JSON header errors: -200..-299
+	SJWTRetErrJSONHdrParse = -201
+	SJWTRetErrJSONHdrAlg   = -202
+	SJWTRetErrJSONHdrPpt   = -203
+	SJWTRetErrJSONHdrTyp   = -204
+	SJWTRetErrJSONHdrX5u   = -205
+	// identity SIP header errors: -300..-399
+	SJWTRetErrSIPHdrParse = -301
+	SJWTRetErrSIPHdrAlg   = -302
+	SJWTRetErrSIPHdrPpt   = -303
+	SJWTRetErrSIPHdrInfo  = -303
 )
 
 // SJWTHeader - header for JWT
@@ -593,21 +604,21 @@ func SJWTCheckAttributes(bToken string, paramInfo string) (int, error) {
 	header := SJWTHeader{}
 	err = json.Unmarshal([]byte(vHeader), &header)
 	if err != nil {
-		return -3, err
+		return SJWTRetErrJSONHdrParse, err
 	}
 	if len(header.Alg) > 0 && header.Alg != "ES256" {
-		return -2, fmt.Errorf("invalid value for alg in json header")
+		return SJWTRetErrJSONHdrAlg, fmt.Errorf("invalid value for alg in json header")
 	}
 	if len(header.Ppt) > 0 && header.Ppt != "shaken" {
-		return -2, fmt.Errorf("invalid value for ppt in json header")
+		return SJWTRetErrJSONHdrPpt, fmt.Errorf("invalid value for ppt in json header")
 	}
 	if len(header.Typ) > 0 && header.Typ != "passport" {
-		return -2, fmt.Errorf("invalid value for typ in json header")
+		return SJWTRetErrJSONHdrTyp, fmt.Errorf("invalid value for typ in json header")
 	}
 	if len(header.X5u) > 0 && header.X5u != paramInfo {
-		return -2, fmt.Errorf("mismatching value for x5u and info attributes")
+		return SJWTRetErrJSONHdrX5u, fmt.Errorf("mismatching value for x5u and info attributes")
 	}
-	return 0, nil
+	return SJWTRetOK, nil
 }
 
 // SJWTCheckIdentityPKMode - implements the verify of identity
@@ -667,18 +678,18 @@ func SJWTCheckIdentity(identityVal string, expireVal int, pubkeyPath string, tim
 }
 
 // SJWTGetValidInfoAttr - return info param value of alg and ppt are valid
-func SJWTGetValidInfoAttr(hdrtoken []string) (string, error) {
+func SJWTGetValidInfoAttr(hdrtoken []string) (string, int, error) {
 	paramInfo := ""
 	for i := 1; i < len(hdrtoken); i++ {
 		ptoken := strings.Split(hdrtoken[i], "=")
 		if len(ptoken) == 2 {
 			if ptoken[0] == "alg" {
 				if ptoken[1] != "ES256" {
-					return "", fmt.Errorf("invalid value for alg header parameter")
+					return "", SJWTRetErrSIPHdrAlg, fmt.Errorf("invalid value for alg header parameter")
 				}
 			} else if ptoken[0] == "ppt" {
 				if ptoken[1] != "shaken" && ptoken[1] != `"shaken"` {
-					return "", fmt.Errorf("invalid value for ppt header parameter")
+					return "", SJWTRetErrSIPHdrPpt, fmt.Errorf("invalid value for ppt header parameter")
 				}
 			} else if ptoken[0] == "info" {
 				paramInfo = ptoken[1]
@@ -686,13 +697,13 @@ func SJWTGetValidInfoAttr(hdrtoken []string) (string, error) {
 		}
 	}
 	if len(paramInfo) <= 2 {
-		return "", fmt.Errorf("invalid value info header parameter")
+		return "", SJWTRetErrSIPHdrInfo, fmt.Errorf("invalid value info header parameter")
 	}
 	if paramInfo[0] == '<' && paramInfo[len(paramInfo)-1] == '>' {
 		paramInfo = paramInfo[1 : len(paramInfo)-1]
 	}
 
-	return paramInfo, nil
+	return paramInfo, SJWTRetOK, nil
 }
 
 // SJWTCheckFullIdentity - implements the verify of identity
@@ -713,9 +724,9 @@ func SJWTCheckFullIdentity(identityVal string, expireVal int, pubkeyPath string,
 	}
 
 	paramInfo := ""
-	paramInfo, err = SJWTGetValidInfoAttr(hdrtoken)
+	paramInfo, ret, err = SJWTGetValidInfoAttr(hdrtoken)
 	if err != nil {
-		return -1, err
+		return ret, err
 	}
 
 	btoken := strings.Split(strings.TrimSpace(hdrtoken[0]), ".")
@@ -737,9 +748,9 @@ func SJWTCheckFullIdentityURL(identityVal string, expireVal int, timeoutVal int)
 		return -1, fmt.Errorf("missing parts of the message header")
 	}
 
-	paramInfo, err1 := SJWTGetValidInfoAttr(hdrtoken)
+	paramInfo, ret1, err1 := SJWTGetValidInfoAttr(hdrtoken)
 	if err1 != nil {
-		return -1, err1
+		return ret1, err1
 	}
 
 	pubkey, err := SJWTGetURLContent(paramInfo, timeoutVal)
@@ -791,9 +802,9 @@ func SJWTCheckFullIdentityPubKey(identityVal string, expireVal int, pubkeyVal st
 	}
 
 	paramInfo := ""
-	paramInfo, err = SJWTGetValidInfoAttr(hdrtoken)
+	paramInfo, ret, err = SJWTGetValidInfoAttr(hdrtoken)
 	if err != nil {
-		return -1, err
+		return ret, err
 	}
 
 	btoken := strings.Split(strings.TrimSpace(hdrtoken[0]), ".")
