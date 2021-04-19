@@ -28,7 +28,8 @@ import (
 const (
 	SJWTRetOK = 0
 	// generic errors
-	SJWTRetErr = -1
+	SJWTRetErr             = -1
+	SJWTRetErrGetURLFailed = -20
 	// certificate errors: -100..-199
 	SJWTRetErrCertInvalid        = -101
 	SJWTRetErrCertInvalidFormat  = -102
@@ -53,6 +54,9 @@ const (
 	SJWTRetErrSIPHdrAlg   = -302
 	SJWTRetErrSIPHdrPpt   = -303
 	SJWTRetErrSIPHdrInfo  = -303
+	// identity payload errors: -400..-499
+	SJWTRetErrJSONPayloadParse      = -401
+	SJWTRetErrJSONPayloadIATExpired = -402
 )
 
 // SJWTHeader - header for JWT
@@ -433,26 +437,26 @@ func SJWTGetURLContent(urlVal string, timeoutVal int) ([]byte, error) {
 }
 
 // SJWTGetValidPayload --
-func SJWTGetValidPayload(base64Payload string, expireVal int) (*SJWTPayload, error) {
+func SJWTGetValidPayload(base64Payload string, expireVal int) (*SJWTPayload, int, error) {
 	if len(base64Payload) == 0 {
-		return nil, errors.New("empty payload")
+		return nil, SJWTRetErrJSONPayloadParse, errors.New("empty payload")
 	}
 	decodedPayload, payloadErr := SJWTBase64DecodeString(base64Payload)
 	if payloadErr != nil {
-		return nil, fmt.Errorf("invalid payload: %s", payloadErr.Error())
+		return nil, SJWTRetErrJSONPayloadParse, fmt.Errorf("invalid payload: %s", payloadErr.Error())
 	}
 	payload := SJWTPayload{}
 
 	err := json.Unmarshal([]byte(decodedPayload), &payload)
 	if err != nil {
-		return nil, fmt.Errorf("invalid payload: %s", err.Error())
+		return nil, SJWTRetErrJSONPayloadParse, fmt.Errorf("invalid payload: %s", err.Error())
 	}
 
 	if payload.IAT == 0 || time.Now().Unix() > payload.IAT+int64(expireVal) {
-		return nil, errors.New("expired token")
+		return nil, SJWTRetErrJSONPayloadIATExpired, errors.New("expired token")
 	}
 
-	return &payload, nil
+	return &payload, SJWTRetOK, nil
 }
 
 // SJWTVerifyWithPubKey - implements the verify
@@ -562,7 +566,7 @@ func SJWTDecodeWithPubKey(jwt string, expireVal int, pubkey interface{}) (*SJWTP
 		return nil, splitErr
 	}
 
-	payload, err = SJWTGetValidPayload(token[1], expireVal)
+	payload, ret, err = SJWTGetValidPayload(token[1], expireVal)
 	if err != nil {
 		return nil, fmt.Errorf("getting payload failed: (%d) %v", ret, err)
 	}
@@ -635,9 +639,9 @@ func SJWTCheckIdentityPKMode(identityVal string, expireVal int, pubkeyVal string
 		return -1, fmt.Errorf("invalid token - must contain header, payload and signature")
 	}
 
-	payload, err = SJWTGetValidPayload(token[1], expireVal)
+	payload, ret, err = SJWTGetValidPayload(token[1], expireVal)
 	if err != nil {
-		return -1, err
+		return ret, err
 	}
 
 	if pubkeyMode == 1 {
@@ -745,7 +749,7 @@ func SJWTCheckFullIdentityURL(identityVal string, expireVal int, timeoutVal int)
 	hdrtoken := strings.Split(SJWTRemoveWhiteSpaces(identityVal), ";")
 
 	if len(hdrtoken) <= 1 {
-		return -1, fmt.Errorf("missing parts of the message header")
+		return SJWTRetErrSIPHdrParse, fmt.Errorf("missing parts of the message header")
 	}
 
 	paramInfo, ret1, err1 := SJWTGetValidInfoAttr(hdrtoken)
@@ -755,29 +759,33 @@ func SJWTCheckFullIdentityURL(identityVal string, expireVal int, timeoutVal int)
 
 	pubkey, err := SJWTGetURLContent(paramInfo, timeoutVal)
 
+	if pubkey == nil {
+		return SJWTRetErrGetURLFailed, err
+	}
+
 	ret, err = SJWTPubKeyVerify(pubkey)
 	if ret != SJWTRetOK {
-		return -1, err
+		return ret, err
 	}
 
 	if ecdsaPubKey, err = SJWTParseECPublicKeyFromPEM(pubkey); err != nil {
-		return -1, err
+		return SJWTRetErrCertInvalidFormat, err
 	}
 
 	btoken := strings.Split(strings.TrimSpace(hdrtoken[0]), ".")
 
 	if len(btoken) != 3 {
-		return -1, fmt.Errorf("invalid token - must contain header, payload and signature")
+		return SJWTRetErrSIPHdrParse, fmt.Errorf("invalid token - must contain header, payload and signature")
 	}
 
 	if len(btoken[0]) == 0 {
-		return -1, fmt.Errorf("no json header part")
+		return SJWTRetErrSIPHdrParse, fmt.Errorf("no json header part")
 	}
 
 	var payload *SJWTPayload
-	payload, err = SJWTGetValidPayload(btoken[1], expireVal)
-	if payload != nil || err != nil {
-		return -1, err
+	payload, ret, err = SJWTGetValidPayload(btoken[1], expireVal)
+	if payload == nil || err != nil {
+		return ret, err
 	}
 
 	ret, err = SJWTVerifyWithPubKey(btoken[0]+"."+btoken[1], btoken[2], ecdsaPubKey)
