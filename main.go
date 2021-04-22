@@ -179,7 +179,7 @@ func localTest() {
 	prvkey, _ := ioutil.ReadFile("../test/certs/ec256-private.pem")
 
 	var ecdsaPrvKey *ecdsa.PrivateKey
-	if ecdsaPrvKey, err = secsipid.SJWTParseECPrivateKeyFromPEM(prvkey); err != nil {
+	if ecdsaPrvKey, _, err = secsipid.SJWTParseECPrivateKeyFromPEM(prvkey); err != nil {
 		fmt.Printf("Unable to parse ECDSA private key: %v\n", err)
 		return
 	}
@@ -187,7 +187,7 @@ func localTest() {
 	pubkey, _ := ioutil.ReadFile("../test/certs/ec256-public.pem")
 
 	var ecdsaPubKey *ecdsa.PublicKey
-	if ecdsaPubKey, err = secsipid.SJWTParseECPublicKeyFromPEM(pubkey); err != nil {
+	if ecdsaPubKey, _, err = secsipid.SJWTParseECPublicKeyFromPEM(pubkey); err != nil {
 		fmt.Printf("Unable to parse ECDSA public key: %v\n", err)
 		return
 	}
@@ -200,13 +200,13 @@ func localTest() {
 
 	headerJSON, _ := json.Marshal(header)
 	payloadJSON, _ := json.Marshal(payload)
-	signatureText, _ := secsipid.SJWTEncodeText(string(headerJSON), string(payloadJSON), "certs/ec256-private.pem")
+	signatureText, _, _ := secsipid.SJWTEncodeText(string(headerJSON), string(payloadJSON), "certs/ec256-private.pem")
 	fmt.Printf("Signature: %s\n", signatureText)
 }
 
 func secsipidxCLISignFull() int {
 
-	token, err := secsipid.SJWTGetIdentity(cliops.origtn, cliops.desttn, cliops.attest, cliops.origid, cliops.x5u, cliops.fprvkey)
+	token, _, err := secsipid.SJWTGetIdentity(cliops.origtn, cliops.desttn, cliops.attest, cliops.origid, cliops.x5u, cliops.fprvkey)
 
 	if err != nil {
 		fmt.Printf("error: %v\n", err)
@@ -316,13 +316,13 @@ func secsipidxCLISign() int {
 		prvkey, _ := ioutil.ReadFile(cliops.fprvkey)
 		var ecdsaPrvKey *ecdsa.PrivateKey
 
-		if ecdsaPrvKey, err = secsipid.SJWTParseECPrivateKeyFromPEM(prvkey); err != nil {
+		if ecdsaPrvKey, _, err = secsipid.SJWTParseECPrivateKeyFromPEM(prvkey); err != nil {
 			fmt.Printf("Unable to parse ECDSA private key: %v\n", err)
 			return -1
 		}
 		token = secsipid.SJWTEncode(header, payload, ecdsaPrvKey)
 	} else {
-		token, _ = secsipid.SJWTEncodeText(sHeader, sPayload, cliops.fprvkey)
+		token, _, _ = secsipid.SJWTEncodeText(sHeader, sPayload, cliops.fprvkey)
 	}
 	fmt.Printf("%s\n", token)
 
@@ -394,7 +394,7 @@ func httpHandleV1SignCSV(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var hdr string
-	hdr, err = secsipid.SJWTGetIdentity(token[0], token[1], token[2], token[3], token[4], cliops.fprvkey)
+	hdr, _, err = secsipid.SJWTGetIdentity(token[0], token[1], token[2], token[3], token[4], cliops.fprvkey)
 	if err != nil {
 		fmt.Printf("error reading body: %v", err)
 		http.Error(w, "cannot read body", http.StatusBadRequest)
