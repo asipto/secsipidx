@@ -28,35 +28,48 @@ import (
 const (
 	SJWTRetOK = 0
 	// generic errors
-	SJWTRetErr             = -1
-	SJWTRetErrGetURLFailed = -20
-	// certificate errors: -100..-199
-	SJWTRetErrCertInvalid        = -101
-	SJWTRetErrCertInvalidFormat  = -102
-	SJWTRetErrCertExpired        = -103
-	SJWTRetErrCertBeforeValidity = -104
-	SJWTRetErrCertProcessing     = -105
-	SJWTRetErrCertNoCAFile       = -106
-	SJWTRetErrCertReadCAFile     = -107
-	SJWTRetErrCertNoCAInter      = -108
-	SJWTRetErrCertReadCAInter    = -109
-	SJWTRetErrCertNoCRLFile      = -110
-	SJWTRetErrCertReadCRLFile    = -111
-	SJWTRetErrCertRevoked        = -112
-	// identity JSON header errors: -200..-299
-	SJWTRetErrJSONHdrParse = -201
-	SJWTRetErrJSONHdrAlg   = -202
-	SJWTRetErrJSONHdrPpt   = -203
-	SJWTRetErrJSONHdrTyp   = -204
-	SJWTRetErrJSONHdrX5u   = -205
+	SJWTRetErr = -1
+	// public certificate and private key errors: -100..-199
+	SJWTRetErrCertInvalid         = -101
+	SJWTRetErrCertInvalidFormat   = -102
+	SJWTRetErrCertExpired         = -103
+	SJWTRetErrCertBeforeValidity  = -104
+	SJWTRetErrCertProcessing      = -105
+	SJWTRetErrCertNoCAFile        = -106
+	SJWTRetErrCertReadCAFile      = -107
+	SJWTRetErrCertNoCAInter       = -108
+	SJWTRetErrCertReadCAInter     = -109
+	SJWTRetErrCertNoCRLFile       = -110
+	SJWTRetErrCertReadCRLFile     = -111
+	SJWTRetErrCertRevoked         = -112
+	SJWTRetErrCertInvalidEC       = -114
+	SJWTRetErrPrvKeyInvalid       = -151
+	SJWTRetErrPrvKeyInvalidFormat = -152
+	SJWTRetErrPrvKeyInvalidEC     = -152
+	// identity JSON header, payload and signature errors: -200..-299
+	SJWTRetErrJSONHdrParse          = -201
+	SJWTRetErrJSONHdrAlg            = -202
+	SJWTRetErrJSONHdrPpt            = -203
+	SJWTRetErrJSONHdrTyp            = -204
+	SJWTRetErrJSONHdrX5u            = -205
+	SJWTRetErrJSONPayloadParse      = -231
+	SJWTRetErrJSONPayloadIATExpired = -232
+	SJWTRetErrJSONSignatureInvalid  = -251
+	SJWTRetErrJSONSignatureHashing  = -252
+	SJWTRetErrJSONSignatureSize     = -253
+	SJWTRetErrJSONSignatureFailure  = -254
 	// identity SIP header errors: -300..-399
 	SJWTRetErrSIPHdrParse = -301
 	SJWTRetErrSIPHdrAlg   = -302
 	SJWTRetErrSIPHdrPpt   = -303
 	SJWTRetErrSIPHdrInfo  = -303
-	// identity payload errors: -400..-499
-	SJWTRetErrJSONPayloadParse      = -401
-	SJWTRetErrJSONPayloadIATExpired = -402
+	SJWTRetErrSIPHdrEmpty = -304
+	// http and file operations errors: -500..-599
+	SJWTRetErrHTTPInvalidURL = -501
+	SJWTRetErrHTTPGet        = -502
+	SJWTRetErrHTTPStatusCode = -503
+	SJWTRetErrHTTPReadBody   = -504
+	SJWTRetErrFileRead       = -551
 )
 
 // SJWTHeader - header for JWT
@@ -294,37 +307,37 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 }
 
 // SJWTParseECPrivateKeyFromPEM Parse PEM encoded Elliptic Curve Private Key Structure
-func SJWTParseECPrivateKeyFromPEM(key []byte) (*ecdsa.PrivateKey, error) {
+func SJWTParseECPrivateKeyFromPEM(key []byte) (*ecdsa.PrivateKey, int, error) {
 	var err error
 
 	var block *pem.Block
 	if block, _ = pem.Decode(key); block == nil {
-		return nil, errors.New("key must be PEM encoded")
+		return nil, SJWTRetErrPrvKeyInvalidFormat, errors.New("key must be PEM encoded")
 	}
 
 	var parsedKey interface{}
 	if parsedKey, err = x509.ParseECPrivateKey(block.Bytes); err != nil {
 		if parsedKey, err = x509.ParsePKCS8PrivateKey(block.Bytes); err != nil {
-			return nil, err
+			return nil, SJWTRetErrPrvKeyInvalid, err
 		}
 	}
 
 	var pkey *ecdsa.PrivateKey
 	var ok bool
 	if pkey, ok = parsedKey.(*ecdsa.PrivateKey); !ok {
-		return nil, errors.New("not EC private key")
+		return nil, SJWTRetErrPrvKeyInvalidEC, errors.New("not EC private key")
 	}
 
-	return pkey, nil
+	return pkey, SJWTRetOK, nil
 }
 
 // SJWTParseECPublicKeyFromPEM Parse PEM encoded PKCS1 or PKCS8 public key
-func SJWTParseECPublicKeyFromPEM(key []byte) (*ecdsa.PublicKey, error) {
+func SJWTParseECPublicKeyFromPEM(key []byte) (*ecdsa.PublicKey, int, error) {
 	var err error
 
 	var block *pem.Block
 	if block, _ = pem.Decode(key); block == nil {
-		return nil, errors.New("key must be PEM encoded")
+		return nil, SJWTRetErrCertInvalidFormat, errors.New("key must be PEM encoded")
 	}
 
 	var parsedKey interface{}
@@ -332,17 +345,17 @@ func SJWTParseECPublicKeyFromPEM(key []byte) (*ecdsa.PublicKey, error) {
 		if cert, err := x509.ParseCertificate(block.Bytes); err == nil {
 			parsedKey = cert.PublicKey
 		} else {
-			return nil, err
+			return nil, SJWTRetErrCertInvalid, err
 		}
 	}
 
 	var pkey *ecdsa.PublicKey
 	var ok bool
 	if pkey, ok = parsedKey.(*ecdsa.PublicKey); !ok {
-		return nil, errors.New("not EC public key")
+		return nil, SJWTRetErrCertInvalidEC, errors.New("not EC public key")
 	}
 
-	return pkey, nil
+	return pkey, SJWTRetOK, nil
 }
 
 // SJWTBase64EncodeString encode string to base64 with padding stripped
@@ -404,11 +417,19 @@ func SJWTSetURLCachedContent(urlVal string, data []byte) error {
 }
 
 // SJWTGetURLContent --
-func SJWTGetURLContent(urlVal string, timeoutVal int) ([]byte, error) {
+func SJWTGetURLContent(urlVal string, timeoutVal int) ([]byte, int, error) {
+	if len(urlVal) == 0 {
+		return nil, SJWTRetErrHTTPInvalidURL, errors.New("no URL value")
+	}
+
+	if !(strings.HasPrefix(urlVal, "http://") || strings.HasPrefix(urlVal, "https://")) {
+		return nil, SJWTRetErrHTTPInvalidURL, errors.New("invalid URL value")
+	}
+
 	if len(globalLibOptions.cacheDirPath) > 0 {
 		cdata, cerr := SJWTGetURLCachedContent(urlVal)
 		if cdata != nil {
-			return cdata, cerr
+			return cdata, SJWTRetOK, cerr
 		}
 	}
 	httpClient := http.Client{
@@ -416,24 +437,24 @@ func SJWTGetURLContent(urlVal string, timeoutVal int) ([]byte, error) {
 	}
 	resp, err := httpClient.Get(urlVal)
 	if err != nil {
-		return nil, fmt.Errorf("http get failure: %v", err)
+		return nil, SJWTRetErrHTTPGet, fmt.Errorf("http get failure: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("http status error: %v", resp.StatusCode)
+		return nil, SJWTRetErrHTTPStatusCode, fmt.Errorf("http status error: %v", resp.StatusCode)
 	}
 
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("read http body failure: %v", err)
+		return nil, SJWTRetErrHTTPReadBody, fmt.Errorf("read http body failure: %v", err)
 	}
 
 	if len(globalLibOptions.cacheDirPath) > 0 {
 		SJWTSetURLCachedContent(urlVal, data)
 	}
 
-	return data, nil
+	return data, SJWTRetOK, nil
 }
 
 // SJWTGetValidPayload --
@@ -474,41 +495,41 @@ func SJWTVerifyWithPubKey(signingString string, signature string, key interface{
 	case *ecdsa.PublicKey:
 		ecdsaKey = k
 	default:
-		return -1, errors.New("invalid key type")
+		return SJWTRetErrCertInvalidFormat, errors.New("invalid key type")
 	}
 
 	if len(sig) != 2*sES256KeySize {
-		return -1, errors.New("ECDSA signature size verification failed")
+		return SJWTRetErrJSONSignatureSize, errors.New("ECDSA signature size verification failed")
 	}
 
 	r := big.NewInt(0).SetBytes(sig[:sES256KeySize])
 	s := big.NewInt(0).SetBytes(sig[sES256KeySize:])
 
 	if !crypto.SHA256.Available() {
-		return -1, errors.New("hashing function unavailable")
+		return SJWTRetErrJSONSignatureHashing, errors.New("hashing function unavailable")
 	}
 	hasher := crypto.SHA256.New()
 	hasher.Write([]byte(signingString))
 
 	if verifystatus := ecdsa.Verify(ecdsaKey, hasher.Sum(nil), r, s); verifystatus == true {
-		return 0, nil
+		return SJWTRetOK, nil
 	}
-	return -1, errors.New("ECDSA verification failed")
+	return SJWTRetErrJSONSignatureInvalid, errors.New("ECDSA verification failed")
 }
 
 // SJWTSignWithPrvKey - implements the signing
 // For this signing method, key must be an ecdsa.PrivateKey struct
-func SJWTSignWithPrvKey(signingString string, key interface{}) (string, error) {
+func SJWTSignWithPrvKey(signingString string, key interface{}) (string, int, error) {
 	var ecdsaKey *ecdsa.PrivateKey
 	switch k := key.(type) {
 	case *ecdsa.PrivateKey:
 		ecdsaKey = k
 	default:
-		return "", errors.New("invalid key type")
+		return "", SJWTRetErrPrvKeyInvalidEC, errors.New("invalid key type")
 	}
 
 	if !crypto.SHA256.Available() {
-		return "", errors.New("hashing function not available")
+		return "", SJWTRetErrJSONSignatureHashing, errors.New("hashing function not available")
 	}
 
 	hasher := crypto.SHA256.New()
@@ -519,7 +540,7 @@ func SJWTSignWithPrvKey(signingString string, key interface{}) (string, error) {
 		curveBits := ecdsaKey.Curve.Params().BitSize
 
 		if sES256KeyBits != curveBits {
-			return "", errors.New("invalid key size")
+			return "", SJWTRetErrJSONSignatureSize, errors.New("invalid key size")
 		}
 
 		keyBytes := curveBits / 8
@@ -537,9 +558,9 @@ func SJWTSignWithPrvKey(signingString string, key interface{}) (string, error) {
 
 		out := append(rBytesPadded, sBytesPadded...)
 
-		return SJWTBase64EncodeBytes(out), nil
+		return SJWTBase64EncodeBytes(out), SJWTRetOK, nil
 	}
-	return "", err
+	return "", SJWTRetErrJSONSignatureFailure, err
 }
 
 // SJWTEncode - encode payload to JWT
@@ -549,7 +570,7 @@ func SJWTEncode(header SJWTHeader, payload SJWTPayload, prvkey interface{}) stri
 	encodedPayload, _ := json.Marshal(payload)
 	signingValue := jwthdr + "." +
 		SJWTBase64EncodeString(string(encodedPayload))
-	signatureValue, _ := SJWTSignWithPrvKey(signingValue, prvkey)
+	signatureValue, _, _ := SJWTSignWithPrvKey(signingValue, prvkey)
 	return signingValue + "." + signatureValue
 }
 
@@ -581,24 +602,25 @@ func SJWTDecodeWithPubKey(jwt string, expireVal int, pubkey interface{}) (*SJWTP
 }
 
 // SJWTEncodeText - encode header and payload to JWT
-func SJWTEncodeText(headerJSON string, payloadJSON string, prvkeyPath string) (string, error) {
+func SJWTEncodeText(headerJSON string, payloadJSON string, prvkeyPath string) (string, int, error) {
+	var ret int
 	var err error
 	var signatureValue string
 	var ecdsaPrvKey *ecdsa.PrivateKey
 
 	prvkey, _ := ioutil.ReadFile(prvkeyPath)
 
-	if ecdsaPrvKey, err = SJWTParseECPrivateKeyFromPEM(prvkey); err != nil {
-		return "", err
+	if ecdsaPrvKey, ret, err = SJWTParseECPrivateKeyFromPEM(prvkey); err != nil {
+		return "", ret, err
 	}
 
 	signingValue := SJWTBase64EncodeString(strings.TrimSpace(headerJSON)) +
 		"." + SJWTBase64EncodeString(strings.TrimSpace(payloadJSON))
-	signatureValue, err = SJWTSignWithPrvKey(signingValue, ecdsaPrvKey)
+	signatureValue, ret, err = SJWTSignWithPrvKey(signingValue, ecdsaPrvKey)
 	if err != nil {
-		return "", fmt.Errorf("failed to build signature: %v", err)
+		return "", ret, fmt.Errorf("failed to build signature: %v", err)
 	}
-	return signingValue + "." + signatureValue, nil
+	return signingValue + "." + signatureValue, SJWTRetOK, nil
 }
 
 // SJWTCheckAttributes - implements the verify of attributes
@@ -636,7 +658,7 @@ func SJWTCheckIdentityPKMode(identityVal string, expireVal int, pubkeyVal string
 	token := strings.Split(strings.TrimSpace(identityVal), ".")
 
 	if len(token) != 3 {
-		return -1, fmt.Errorf("invalid token - must contain header, payload and signature")
+		return SJWTRetErrSIPHdrParse, fmt.Errorf("invalid token - must contain header, payload and signature")
 	}
 
 	payload, ret, err = SJWTGetValidPayload(token[1], expireVal)
@@ -648,32 +670,34 @@ func SJWTCheckIdentityPKMode(identityVal string, expireVal int, pubkeyVal string
 		pubkey = []byte(pubkeyVal)
 	} else {
 		if strings.HasPrefix(pubkeyVal, "http://") || strings.HasPrefix(pubkeyVal, "https://") {
-			pubkey, err = SJWTGetURLContent(pubkeyVal, timeoutVal)
+			pubkey, ret, err = SJWTGetURLContent(pubkeyVal, timeoutVal)
 		} else if strings.HasPrefix(pubkeyVal, "file://") {
 			fileUrl, _ := url.Parse(pubkeyVal)
 			pubkey, err = ioutil.ReadFile(fileUrl.Path)
+			ret = SJWTRetErrFileRead
 		} else {
 			pubkey, err = ioutil.ReadFile(pubkeyVal)
+			ret = SJWTRetErrFileRead
 		}
 		if err != nil {
-			return -1, err
+			return ret, err
 		}
 	}
 
 	ret, err = SJWTPubKeyVerify(pubkey)
 	if ret != SJWTRetOK {
-		return -1, err
+		return ret, err
 	}
 
-	if ecdsaPubKey, err = SJWTParseECPublicKeyFromPEM(pubkey); err != nil {
-		return -1, err
+	if ecdsaPubKey, ret, err = SJWTParseECPublicKeyFromPEM(pubkey); err != nil {
+		return ret, err
 	}
 	ret, err = SJWTVerifyWithPubKey(token[0]+"."+token[1], token[2], ecdsaPubKey)
 	if err == nil {
-		return 0, nil
+		return SJWTRetOK, nil
 	}
 
-	return 1, fmt.Errorf("failed to verify - origid (%s) (%d) %v", payload.OrigID, ret, err)
+	return ret, fmt.Errorf("failed to verify - origid (%s) (%d) %v", payload.OrigID, ret, err)
 }
 
 // SJWTCheckIdentity - implements the verify of identity
@@ -724,7 +748,7 @@ func SJWTCheckFullIdentity(identityVal string, expireVal int, pubkeyPath string,
 	}
 
 	if len(hdrtoken) == 1 {
-		return 0, nil
+		return SJWTRetErrSIPHdrParse, nil
 	}
 
 	paramInfo := ""
@@ -736,7 +760,7 @@ func SJWTCheckFullIdentity(identityVal string, expireVal int, pubkeyPath string,
 	btoken := strings.Split(strings.TrimSpace(hdrtoken[0]), ".")
 
 	if len(btoken[0]) == 0 {
-		return 0, nil
+		return SJWTRetErrJSONHdrParse, nil
 	}
 	return SJWTCheckAttributes(btoken[0], paramInfo)
 }
@@ -745,6 +769,8 @@ func SJWTCheckFullIdentity(identityVal string, expireVal int, pubkeyPath string,
 func SJWTCheckFullIdentityURL(identityVal string, expireVal int, timeoutVal int) (int, error) {
 	var ecdsaPubKey *ecdsa.PublicKey
 	var ret int
+	var err error
+	var pubkey []byte
 
 	hdrtoken := strings.Split(SJWTRemoveWhiteSpaces(identityVal), ";")
 
@@ -752,15 +778,16 @@ func SJWTCheckFullIdentityURL(identityVal string, expireVal int, timeoutVal int)
 		return SJWTRetErrSIPHdrParse, fmt.Errorf("missing parts of the message header")
 	}
 
-	paramInfo, ret1, err1 := SJWTGetValidInfoAttr(hdrtoken)
-	if err1 != nil {
-		return ret1, err1
+	paramInfo := ""
+	paramInfo, ret, err = SJWTGetValidInfoAttr(hdrtoken)
+	if err != nil {
+		return ret, err
 	}
 
-	pubkey, err := SJWTGetURLContent(paramInfo, timeoutVal)
+	pubkey, ret, err = SJWTGetURLContent(paramInfo, timeoutVal)
 
 	if pubkey == nil {
-		return SJWTRetErrGetURLFailed, err
+		return ret, err
 	}
 
 	ret, err = SJWTPubKeyVerify(pubkey)
@@ -768,8 +795,8 @@ func SJWTCheckFullIdentityURL(identityVal string, expireVal int, timeoutVal int)
 		return ret, err
 	}
 
-	if ecdsaPubKey, err = SJWTParseECPublicKeyFromPEM(pubkey); err != nil {
-		return SJWTRetErrCertInvalidFormat, err
+	if ecdsaPubKey, ret, err = SJWTParseECPublicKeyFromPEM(pubkey); err != nil {
+		return ret, err
 	}
 
 	btoken := strings.Split(strings.TrimSpace(hdrtoken[0]), ".")
@@ -806,7 +833,7 @@ func SJWTCheckFullIdentityPubKey(identityVal string, expireVal int, pubkeyVal st
 	}
 
 	if len(hdrtoken) == 1 {
-		return 0, nil
+		return SJWTRetOK, nil
 	}
 
 	paramInfo := ""
@@ -818,13 +845,14 @@ func SJWTCheckFullIdentityPubKey(identityVal string, expireVal int, pubkeyVal st
 	btoken := strings.Split(strings.TrimSpace(hdrtoken[0]), ".")
 
 	if len(btoken[0]) == 0 {
-		return 0, nil
+		return SJWTRetOK, nil
 	}
 	return SJWTCheckAttributes(btoken[0], paramInfo)
 }
 
 // SJWTGetIdentityPrvKey --
-func SJWTGetIdentityPrvKey(origTN string, destTN string, attestVal string, origID string, x5uVal string, prvkeyData []byte) (string, error) {
+func SJWTGetIdentityPrvKey(origTN string, destTN string, attestVal string, origID string, x5uVal string, prvkeyData []byte) (string, int, error) {
+	var ret int
 	var err error
 	var vOrigID string
 
@@ -857,25 +885,25 @@ func SJWTGetIdentityPrvKey(origTN string, destTN string, attestVal string, origI
 	}
 
 	var ecdsaPrvKey *ecdsa.PrivateKey
-	if ecdsaPrvKey, err = SJWTParseECPrivateKeyFromPEM(prvkeyData); err != nil {
-		return "", fmt.Errorf("Unable to parse ECDSA private key: %v", err)
+	if ecdsaPrvKey, ret, err = SJWTParseECPrivateKeyFromPEM(prvkeyData); err != nil {
+		return "", ret, fmt.Errorf("Unable to parse ECDSA private key: %v", err)
 	}
 	token := SJWTEncode(header, payload, ecdsaPrvKey)
 
 	if len(token) > 0 {
-		return token + ";info=<" + header.X5u + ">;alg=ES256;ppt=shaken", nil
+		return token + ";info=<" + header.X5u + ">;alg=ES256;ppt=shaken", SJWTRetOK, nil
 	}
-	return "", nil
+	return "", SJWTRetErrSIPHdrEmpty, errors.New("empty result")
 }
 
 // SJWTGetIdentity --
-func SJWTGetIdentity(origTN string, destTN string, attestVal string, origID string, x5uVal string, prvkeyPath string) (string, error) {
+func SJWTGetIdentity(origTN string, destTN string, attestVal string, origID string, x5uVal string, prvkeyPath string) (string, int, error) {
 	var prvkey []byte
 	var err error
 
 	prvkey, err = ioutil.ReadFile(prvkeyPath)
 	if err != nil {
-		return "", fmt.Errorf("Unable to read private key file: %v", err)
+		return "", SJWTRetErrFileRead, fmt.Errorf("Unable to read private key file: %v", err)
 	}
 	return SJWTGetIdentityPrvKey(origTN, destTN, attestVal, origID, x5uVal, prvkey)
 }

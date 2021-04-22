@@ -16,7 +16,7 @@ import (
 // * return: the length of `*outPtr`
 //export SecSIPIDSignJSONHP
 func SecSIPIDSignJSONHP(headerJSON *C.char, payloadJSON *C.char, prvkeyPath *C.char, outPtr **C.char) C.int {
-	signature, _ := secsipid.SJWTEncodeText(C.GoString(headerJSON), C.GoString(payloadJSON), C.GoString(prvkeyPath))
+	signature, _, _ := secsipid.SJWTEncodeText(C.GoString(headerJSON), C.GoString(payloadJSON), C.GoString(prvkeyPath))
 	*outPtr = C.CString(signature)
 	return C.int(len(signature))
 }
@@ -34,7 +34,7 @@ func SecSIPIDSignJSONHP(headerJSON *C.char, payloadJSON *C.char, prvkeyPath *C.c
 // * return: the length of `*outPtr`
 //export SecSIPIDGetIdentity
 func SecSIPIDGetIdentity(origTN *C.char, destTN *C.char, attestVal *C.char, origID *C.char, x5uVal *C.char, prvkeyPath *C.char, outPtr **C.char) C.int {
-	signature, _ := secsipid.SJWTGetIdentity(C.GoString(origTN), C.GoString(destTN), C.GoString(attestVal), C.GoString(origID), C.GoString(x5uVal), C.GoString(prvkeyPath))
+	signature, _, _ := secsipid.SJWTGetIdentity(C.GoString(origTN), C.GoString(destTN), C.GoString(attestVal), C.GoString(origID), C.GoString(x5uVal), C.GoString(prvkeyPath))
 	*outPtr = C.CString(signature)
 	return C.int(len(signature))
 }
@@ -52,7 +52,7 @@ func SecSIPIDGetIdentity(origTN *C.char, destTN *C.char, attestVal *C.char, orig
 // * return: the length of `*outPtr`
 //export SecSIPIDGetIdentityPrvKey
 func SecSIPIDGetIdentityPrvKey(origTN *C.char, destTN *C.char, attestVal *C.char, origID *C.char, x5uVal *C.char, prvkeyData *C.char, outPtr **C.char) C.int {
-	signature, _ := secsipid.SJWTGetIdentityPrvKey(C.GoString(origTN), C.GoString(destTN), C.GoString(attestVal), C.GoString(origID), C.GoString(x5uVal), []byte(C.GoString(prvkeyData)))
+	signature, _, _ := secsipid.SJWTGetIdentityPrvKey(C.GoString(origTN), C.GoString(destTN), C.GoString(attestVal), C.GoString(origID), C.GoString(x5uVal), []byte(C.GoString(prvkeyData)))
 	*outPtr = C.CString(signature)
 	return C.int(len(signature))
 }
@@ -149,13 +149,13 @@ func SecSIPIDSetFileCacheOptions(dirPath *C.char, expireVal C.int) C.int {
 // * return: 0 - on success; -1 - on failure
 //export SecSIPIDGetURLContent
 func SecSIPIDGetURLContent(urlVal *C.char, timeoutVal C.int, outPtr **C.char, outLen *C.int) C.int {
-	content, _ := secsipid.SJWTGetURLContent(C.GoString(urlVal), int(timeoutVal))
+	content, ret, _ := secsipid.SJWTGetURLContent(C.GoString(urlVal), int(timeoutVal))
 	if content != nil {
 		*outPtr = C.CString(string(content))
 		*outLen = C.int(len(string(content)))
 		return C.int(0)
 	}
-	return C.int(-1)
+	return C.int(ret)
 }
 
 // SecSIPIDOptSetS --
