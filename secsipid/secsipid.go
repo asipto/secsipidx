@@ -64,12 +64,12 @@ const (
 	SJWTRetErrSIPHdrPpt   = -303
 	SJWTRetErrSIPHdrInfo  = -303
 	SJWTRetErrSIPHdrEmpty = -304
-	// http and file operations errors: -500..-599
-	SJWTRetErrHTTPInvalidURL = -501
-	SJWTRetErrHTTPGet        = -502
-	SJWTRetErrHTTPStatusCode = -503
-	SJWTRetErrHTTPReadBody   = -504
-	SJWTRetErrFileRead       = -551
+	// http and file operations errors: -400..-499
+	SJWTRetErrHTTPInvalidURL = -401
+	SJWTRetErrHTTPGet        = -402
+	SJWTRetErrHTTPStatusCode = -403
+	SJWTRetErrHTTPReadBody   = -404
+	SJWTRetErrFileRead       = -451
 )
 
 // SJWTHeader - header for JWT
@@ -133,16 +133,16 @@ func SJWTLibOptSetS(optname string, optval string) int {
 	switch optname {
 	case "CacheDirPath":
 		globalLibOptions.cacheDirPath = optval
-		return 0
+		return SJWTRetOK
 	case "CertCAFile":
 		globalLibOptions.certCAFile = optval
-		return 0
+		return SJWTRetOK
 	case "CertCRLFile":
 		globalLibOptions.certCRLFile = optval
-		return 0
+		return SJWTRetOK
 	case "CertCAInter":
 		globalLibOptions.certCAInter = optval
-		return 0
+		return SJWTRetOK
 	}
 	return SJWTRetErr
 }
@@ -152,10 +152,10 @@ func SJWTLibOptSetN(optname string, optval int) int {
 	switch optname {
 	case "CacheExpires":
 		globalLibOptions.cacheExpire = optval
-		return 0
+		return SJWTRetOK
 	case "CertVerify":
 		globalLibOptions.certVerify = optval
-		return 0
+		return SJWTRetOK
 	}
 	return SJWTRetErr
 }
