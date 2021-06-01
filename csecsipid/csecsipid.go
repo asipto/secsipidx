@@ -31,11 +31,14 @@ func SecSIPIDSignJSONHP(headerJSON *C.char, payloadJSON *C.char, prvkeyPath *C.c
 // * prvkeyPath - path to private key to be used to generate the signature
 // * outPtr - to be set to the pointer containing the output (it is a
 //   0-terminated string); the `*outPtr` must be freed after use
-// * return: the length of `*outPtr`
+// * return: the length of `*outPtr` on success or error return code (< 0)
 //export SecSIPIDGetIdentity
 func SecSIPIDGetIdentity(origTN *C.char, destTN *C.char, attestVal *C.char, origID *C.char, x5uVal *C.char, prvkeyPath *C.char, outPtr **C.char) C.int {
-	signature, _, _ := secsipid.SJWTGetIdentity(C.GoString(origTN), C.GoString(destTN), C.GoString(attestVal), C.GoString(origID), C.GoString(x5uVal), C.GoString(prvkeyPath))
+	signature, ret, _ := secsipid.SJWTGetIdentity(C.GoString(origTN), C.GoString(destTN), C.GoString(attestVal), C.GoString(origID), C.GoString(x5uVal), C.GoString(prvkeyPath))
 	*outPtr = C.CString(signature)
+	if ret < 0 {
+		return C.int(ret)
+	}
 	return C.int(len(signature))
 }
 
@@ -49,11 +52,14 @@ func SecSIPIDGetIdentity(origTN *C.char, destTN *C.char, attestVal *C.char, orig
 // * prvkeyData - content of private key to be used to generate the signature
 // * outPtr - to be set to the pointer containing the output (it is a
 //   0-terminated string); the `*outPtr` must be freed after use
-// * return: the length of `*outPtr`
+// * return: the length of `*outPtr` on success or error return code (< 0)
 //export SecSIPIDGetIdentityPrvKey
 func SecSIPIDGetIdentityPrvKey(origTN *C.char, destTN *C.char, attestVal *C.char, origID *C.char, x5uVal *C.char, prvkeyData *C.char, outPtr **C.char) C.int {
-	signature, _, _ := secsipid.SJWTGetIdentityPrvKey(C.GoString(origTN), C.GoString(destTN), C.GoString(attestVal), C.GoString(origID), C.GoString(x5uVal), []byte(C.GoString(prvkeyData)))
+	signature, ret, _ := secsipid.SJWTGetIdentityPrvKey(C.GoString(origTN), C.GoString(destTN), C.GoString(attestVal), C.GoString(origID), C.GoString(x5uVal), []byte(C.GoString(prvkeyData)))
 	*outPtr = C.CString(signature)
+	if ret < 0 {
+		return C.int(ret)
+	}
 	return C.int(len(signature))
 }
 

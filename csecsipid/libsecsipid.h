@@ -89,7 +89,7 @@ extern int SecSIPIDSignJSONHP(char* headerJSON, char* payloadJSON, char* prvkeyP
 // * prvkeyPath - path to private key to be used to generate the signature
 // * outPtr - to be set to the pointer containing the output (it is a
 //   0-terminated string); the `*outPtr` must be freed after use
-// * return: the length of `*outPtr`
+// * return: the length of `*outPtr` on success or error return code (< 0)
 extern int SecSIPIDGetIdentity(char* origTN, char* destTN, char* attestVal, char* origID, char* x5uVal, char* prvkeyPath, char** outPtr);
 
 // SecSIPIDGetIdentityPrvKey --
@@ -102,7 +102,7 @@ extern int SecSIPIDGetIdentity(char* origTN, char* destTN, char* attestVal, char
 // * prvkeyData - content of private key to be used to generate the signature
 // * outPtr - to be set to the pointer containing the output (it is a
 //   0-terminated string); the `*outPtr` must be freed after use
-// * return: the length of `*outPtr`
+// * return: the length of `*outPtr` on success or error return code (< 0)
 extern int SecSIPIDGetIdentityPrvKey(char* origTN, char* destTN, char* attestVal, char* origID, char* x5uVal, char* prvkeyData, char** outPtr);
 
 // SecSIPIDCheck --
