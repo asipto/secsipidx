@@ -224,7 +224,7 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 	rootCAs = nil
 	interCAs = nil
 	if (globalLibOptions.certVerify & (1 << 1)) != 0 {
-		// Get the SystemCertPool, continue with an empty pool on error
+		// Get the SystemCertPool
 		rootCAs, err = x509.SystemCertPool()
 		if rootCAs == nil {
 			return SJWTRetErrCertProcessing, err
