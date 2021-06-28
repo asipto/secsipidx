@@ -202,16 +202,42 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 		return SJWTRetOK, nil
 	}
 
+	var certVal *x509.Certificate
+	var certInter []*x509.Certificate
 	var rootCAs *x509.CertPool
 	var interCAs *x509.CertPool
 	var err error
 
-	certBlock, _ := pem.Decode(pubKey)
-	if certBlock == nil {
+	// The public key may contain multiple intermediate certificates, we must
+	// parse those out and include them when doing the actual validation.
+	var toDecode = pubKey
+	var block *pem.Block
+	for true {
+		// Decode the next block in the public key. If there are no more blocks then
+		// this will return nil.
+		block, toDecode = pem.Decode(toDecode)
+		if block == nil {
+			break
+		}
+
+		// Parse the block as an x509 certificate.
+		blockCert, err := x509.ParseCertificate(block.Bytes)
+		if blockCert == nil {
+			return SJWTRetErrCertInvalidFormat, err
+		}
+
+		// If this was the first block then it represents the public certificate,
+		// otherwise it is an intermediate certificate.
+		if certVal == nil {
+			certVal = blockCert
+		} else {
+			certInter = append(certInter, blockCert)
+		}
+	}
+
+	if certVal == nil {
 		return SJWTRetErrCertInvalidFormat, errors.New("failed to parse certificate PEM")
 	}
-	var certVal *x509.Certificate
-	certVal, err = x509.ParseCertificate(certBlock.Bytes)
 
 	if (globalLibOptions.certVerify & (1 << 0)) != 0 {
 		if !time.Now().Before(certVal.NotAfter) {
@@ -273,6 +299,21 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 			return SJWTRetErrCertProcessing, errors.New("failed to append intermediate CA file")
 		}
 	}
+
+	// Append any intermediate certificates included in pubKey.
+	if (len(certInter) > 0) {
+		if interCAs == nil {
+			interCAs = x509.NewCertPool()
+		}
+		if interCAs == nil {
+			return SJWTRetErrCertProcessing, errors.New("no new ca intermediate cert pool")
+		}
+		// Append our certs
+		for _, iCert := range certInter {
+			interCAs.AddCert(iCert)
+		}
+	}
+
 	opts := x509.VerifyOptions{
 		Roots:         rootCAs,
 		Intermediates: interCAs,
