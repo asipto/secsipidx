@@ -465,6 +465,9 @@ func main() {
 	if cliops.certverify > 0 {
 		secsipid.SJWTLibOptSetN("CertVerify", cliops.certverify)
 	}
+	if len(cliops.x5u) > 0 {
+		secsipid.SJWTLibOptSetS("x5u", cliops.x5u)
+	}
 
 	if (len(cliops.httpsrv) > 0) || (len(cliops.httpssrv) > 0 && len(cliops.httpspubkey) > 0 && len(cliops.httpsprvkey) > 0) {
 		http.HandleFunc("/v1/check", httpHandleV1Check)

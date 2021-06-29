@@ -106,6 +106,7 @@ type SJWTLibOptions struct {
 	certCAInter  string
 	certCRLFile  string
 	certVerify   int
+	x5u          string
 }
 
 var globalLibOptions = SJWTLibOptions{
@@ -115,6 +116,7 @@ var globalLibOptions = SJWTLibOptions{
 	certCAInter:  "",
 	certCRLFile:  "",
 	certVerify:   0,
+	x5u:          "https://127.0.0.1/cert.pem",
 }
 
 var (
@@ -142,6 +144,9 @@ func SJWTLibOptSetS(optname string, optval string) int {
 		return SJWTRetOK
 	case "CertCAInter":
 		globalLibOptions.certCAInter = optval
+		return SJWTRetOK
+	case "x5u":
+		globalLibOptions.x5u = optval
 		return SJWTRetOK
 	}
 	return SJWTRetErr
@@ -901,7 +906,7 @@ func SJWTGetIdentityPrvKey(origTN string, destTN string, attestVal string, origI
 		Alg: "ES256",
 		Ppt: "shaken",
 		Typ: "passport",
-		X5u: "https://127.0.0.1/cert.pem",
+		X5u: globalLibOptions.x5u,
 	}
 	if len(x5uVal) > 0 {
 		header.X5u = x5uVal
