@@ -109,6 +109,86 @@ func TestParseECPrivateKeyFromPEM(t *testing.T) {
 	})
 }
 
+type ParseECPublicKeyTest struct {
+	inputPem []byte
+
+	expectedKey     *ecdsa.PublicKey
+	expectedErrCode int
+	expectedErrMsg  string
+}
+
+func TestParseECPublicKeyFromPEM(t *testing.T) {
+	runTest := func(t *testing.T, testCase ParseECPublicKeyTest) {
+		expect := expectate.Expect(t)
+
+		key, errCode, err := secsipid.SJWTParseECPublicKeyFromPEM(testCase.inputPem)
+
+		if testCase.expectedKey == nil {
+			expect(key).ToBe((*ecdsa.PublicKey)(nil))
+		} else {
+			expect(key).ToEqual(testCase.expectedKey)
+		}
+		expect(errCode).ToBe(testCase.expectedErrCode)
+		expect(getMsgFromErr(err)).ToBe(testCase.expectedErrMsg)
+	}
+
+	t.Run("ErrCertInvalidFormat with bad key format", func(t *testing.T) {
+		runTest(t, ParseECPublicKeyTest{
+			inputPem: []byte("bad key format"),
+
+			expectedErrCode: secsipid.SJWTRetErrCertInvalidFormat,
+			expectedErrMsg:  "key must be PEM encoded",
+		})
+	})
+
+	t.Run("ErrCertInvalid with invalid certificate", func(t *testing.T) {
+		invalidCert, _ := pemEncode(&pem.Block{
+			Type:  "CERTIFICATE",
+			Bytes: []byte("invalid certificate"),
+		})
+
+		runTest(t, ParseECPublicKeyTest{
+			inputPem: invalidCert,
+
+			expectedErrCode: secsipid.SJWTRetErrCertInvalid,
+			expectedErrMsg:  "asn1: structure error: tags don't match (16 vs {class:1 tag:9 length:110 isCompound:true}) {optional:false explicit:false application:false private:false defaultValue:<nil> tag:<nil> stringType:0 timeType:0 set:false omitEmpty:false} certificate @2",
+		})
+	})
+
+	t.Run("ErrCertInvalidEC with non-EC public key", func(t *testing.T) {
+		privKey, _ := rsa.GenerateKey(rand.Reader, 512)
+		pubKey := &privKey.PublicKey
+		pubKeyBytes, _ := x509.MarshalPKIXPublicKey(pubKey)
+		rsaPublicKey, _ := pemEncode(&pem.Block{
+			Type:  "CERTIFICATE",
+			Bytes: pubKeyBytes,
+		})
+
+		runTest(t, ParseECPublicKeyTest{
+			inputPem: rsaPublicKey,
+
+			expectedErrCode: secsipid.SJWTRetErrCertInvalidEC,
+			expectedErrMsg:  "not EC public key",
+		})
+	})
+
+	t.Run("OK with EC public key", func(t *testing.T) {
+		privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		pubKey := &privKey.PublicKey
+		pubKeyBytes, _ := x509.MarshalPKIXPublicKey(pubKey)
+		ecPublicKey, _ := pemEncode(&pem.Block{
+			Type:  "CERTIFICATE",
+			Bytes: pubKeyBytes,
+		})
+
+		runTest(t, ParseECPublicKeyTest{
+			inputPem: ecPublicKey,
+
+			expectedKey: pubKey,
+		})
+	})
+}
+
 func pemEncode(block *pem.Block) ([]byte, error) {
 	pemBytes := bytes.NewBufferString("")
 	err := pem.Encode(pemBytes, block)
