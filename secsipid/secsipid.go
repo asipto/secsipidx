@@ -256,7 +256,7 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 	interCAs = nil
 	if (globalLibOptions.certVerify & (1 << 1)) != 0 {
 		// Get the SystemCertPool
-		rootCAs, err = x509.SystemCertPool()
+		rootCAs, err = SystemCertPool()
 		if rootCAs == nil {
 			return SJWTRetErrCertProcessing, err
 		}
@@ -306,7 +306,7 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 	}
 
 	// Append any intermediate certificates included in pubKey.
-	if (len(certInter) > 0) {
+	if len(certInter) > 0 {
 		if interCAs == nil {
 			interCAs = x509.NewCertPool()
 		}
