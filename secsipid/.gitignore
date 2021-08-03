@@ -1,3 +1,6 @@
 dummyCA.pem
 dummyInterCA.pem
 dummyCRLFile.crl
+
+http_example.com_foo
+http_localhost:5555_foo
