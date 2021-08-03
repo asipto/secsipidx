@@ -268,3 +268,18 @@ Code contributions have to be made via pull requests at:
   * https://github.com/asipto/secsipidx/pulls
 
 The code of the pull requests is considered to be licensed under BSD license, unless explicitly requested to be a different license and agreed by the developers before merging.
+
+## Testing ##
+
+To test the secsipid library, `cd` into `secsipid/` and run:
+```bash
+go test -v
+```
+
+Some of the unit tests take multiple seconds because they're forcing a time out or
+waiting for something to expire. These tests are skipped by default.
+
+To run all tests, including these longer ones, set the environemnt variable: `GO_TEST_ALL` to `on`:
+```bash
+GO_TEST_ALL=on go test -v
+```
