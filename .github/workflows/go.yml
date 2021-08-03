@@ -19,4 +19,4 @@ jobs:
         go-version: 1.16
 
     - name: Test
-      run: cd secsipid && go test -v
+      run: cd secsipid && GO_TEST_ALL=on go test -v
