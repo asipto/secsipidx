@@ -215,6 +215,43 @@ func TestGetURLContent(t *testing.T) {
 
 		os.Remove("http_localhost:5555_foo")
 	})
+
+	t.Run("Not OK if cache expires", func(t *testing.T) {
+		if os.Getenv("GO_TEST_ALL") != "on" {
+			t.Skip("This test takes a long time. $GO_TEST_ALL must be set to 'on'")
+		}
+
+		workDir, _ := os.Getwd()
+		secsipid.SetURLFileCacheOptions(workDir, 1)
+
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte("Hello from the server!"))
+		})
+		stopTestServer := startTestServer(handler)
+
+		runTest(t, GetURLValueTest{
+			urlVal:     "http://localhost:5555/foo",
+			timeoutVal: 10,
+
+			expectedContent: []byte("Hello from the server!"),
+			expectedErrCode: secsipid.SJWTRetOK,
+			expectedErrMsg:  "",
+		})
+
+		stopTestServer()
+		time.Sleep(time.Second * 2)
+
+		runTest(t, GetURLValueTest{
+			urlVal:     "http://localhost:5555/foo",
+			timeoutVal: 10,
+
+			expectedContent: nil,
+			expectedErrCode: secsipid.SJWTRetErrHTTPGet,
+			expectedErrMsg:  tcpDialErrMsg,
+		})
+
+		os.Remove("http_localhost:5555_foo")
+	})
 }
 
 func startTestServer(handler http.Handler) (shutdown func()) {
