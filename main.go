@@ -16,7 +16,7 @@ import (
 	"github.com/asipto/secsipidx/secsipid"
 )
 
-const secsipidxVersion = "1.1.1"
+const secsipidxVersion = "1.2.0"
 
 // CLIOptions - structure for command line options
 type CLIOptions struct {
