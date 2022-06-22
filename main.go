@@ -56,6 +56,7 @@ type CLIOptions struct {
 	cainter     string
 	crlfile     string
 	certverify  int
+	verbosity   int
 }
 
 var cliops = CLIOptions{
@@ -95,6 +96,7 @@ var cliops = CLIOptions{
 	cainter:     "",
 	crlfile:     "",
 	certverify:  0,
+	verbosity:   0,
 }
 
 // initialize application components
@@ -141,7 +143,7 @@ func init() {
 	flag.BoolVar(&cliops.sign, "s", cliops.sign, "sign the header and payload given as full JSON documents")
 	flag.BoolVar(&cliops.signfull, "sign-full", cliops.sign, "sign the header and payload build from the individual parameter values")
 	flag.BoolVar(&cliops.signfull, "S", cliops.sign, "sign the header and payload, with parameters")
-	flag.BoolVar(&cliops.jsonparse, "json-parse", cliops.jsonparse, "parse and re-serialize JSON header and payaload values")
+	flag.BoolVar(&cliops.jsonparse, "json-parse", cliops.jsonparse, "parse and re-serialize JSON header and payload values")
 	flag.IntVar(&cliops.expire, "expire", cliops.expire, "duration of token validity (in seconds)")
 	flag.IntVar(&cliops.timeout, "timeout", cliops.timeout, "http get timeout (in seconds, default: 3)")
 	flag.BoolVar(&cliops.ltest, "ltest", cliops.ltest, "run local basic test")
@@ -152,7 +154,9 @@ func init() {
 	flag.StringVar(&cliops.cafile, "ca-file", cliops.cafile, "file with root CA certificates in pem format")
 	flag.StringVar(&cliops.cainter, "ca-inter", cliops.cainter, "file with intermediate CA certificates in pem format")
 	flag.StringVar(&cliops.crlfile, "crl-file", cliops.crlfile, "file with CRL in pem format")
-	flag.IntVar(&cliops.certverify, "cert-verify", cliops.certverify, "certificate verification mode (default 0")
+	flag.IntVar(&cliops.certverify, "cert-verify", cliops.certverify, "certificate verification mode (default 0)")
+	flag.IntVar(&cliops.verbosity, "verbosity", cliops.verbosity, "verbosity level (default 0)")
+	flag.IntVar(&cliops.verbosity, "vl", cliops.verbosity, "verbosity level (default 0)")
 }
 
 func localTest() {
@@ -313,6 +317,9 @@ func secsipidxCLISign() int {
 	}
 
 	if useStruct {
+		if cliops.verbosity > 0 {
+			fmt.Printf("Signing using the structures build from parameter values\n")
+		}
 		prvkey, _ := ioutil.ReadFile(cliops.fprvkey)
 		var ecdsaPrvKey *ecdsa.PrivateKey
 
@@ -322,6 +329,9 @@ func secsipidxCLISign() int {
 		}
 		token = secsipid.SJWTEncode(header, payload, ecdsaPrvKey)
 	} else {
+		if cliops.verbosity > 0 {
+			fmt.Printf("Signing using the JSON documents from parameters\n")
+		}
 		token, _, _ = secsipid.SJWTEncodeText(sHeader, sPayload, cliops.fprvkey)
 	}
 	fmt.Printf("%s\n", token)
