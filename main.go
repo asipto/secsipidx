@@ -498,6 +498,9 @@ func main() {
 
 	ret = 0
 	if cliops.check {
+		if cliops.verbosity > 0 {
+			fmt.Printf("Running with check command\n")
+		}
 		ret = secsipidxCLICheck()
 		if ret == 0 {
 			fmt.Printf("ok\n")
@@ -506,9 +509,15 @@ func main() {
 		}
 		os.Exit(ret)
 	} else if cliops.signfull {
+		if cliops.verbosity > 0 {
+			fmt.Printf("Running with sign-full command\n")
+		}
 		ret = secsipidxCLISignFull()
 		os.Exit(ret)
 	} else if cliops.sign {
+		if cliops.verbosity > 0 {
+			fmt.Printf("Running with sign command\n")
+		}
 		ret = secsipidxCLISign()
 		os.Exit(ret)
 	} else {
