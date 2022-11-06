@@ -220,9 +220,10 @@ make liba
 Then the `*.h` and `libsecsipid.a` files can be copied to the folder where it is
 wanted to be used.
 
-The library is used by `secsipid` module of Kamailio SIP Server (https://www.kamailio.org):
+The library is used by `secsipid` and `secsipid_proc` modules of Kamailio SIP Server (https://www.kamailio.org):
 
   * https://www.kamailio.org/docs/modules/devel/modules/secsipid.html
+  * https://www.kamailio.org/docs/modules/devel/modules/secsipid_proc.html
 
 The prototype of functions exported to `C` API and documentation are int the file:
 
