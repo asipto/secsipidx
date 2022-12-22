@@ -58,6 +58,7 @@ const (
 	SJWTRetErrJSONSignatureHashing  = -252
 	SJWTRetErrJSONSignatureSize     = -253
 	SJWTRetErrJSONSignatureFailure  = -254
+	SJWTRetErrJSONSignatureNob64  = -255
 	// identity SIP header errors: -300..-399
 	SJWTRetErrSIPHdrParse = -301
 	SJWTRetErrSIPHdrAlg   = -302
@@ -533,7 +534,7 @@ func SJWTVerifyWithPubKey(signingString string, signature string, key interface{
 
 	var sig []byte
 	if sig, err = SJWTBase64DecodeBytes(signature); err != nil {
-		return -1, err
+		return SJWTRetErrJSONSignatureNob64, err
 	}
 
 	var ecdsaKey *ecdsa.PublicKey
