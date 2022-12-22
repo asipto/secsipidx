@@ -62,8 +62,8 @@ const (
 	SJWTRetErrSIPHdrParse = -301
 	SJWTRetErrSIPHdrAlg   = -302
 	SJWTRetErrSIPHdrPpt   = -303
-	SJWTRetErrSIPHdrInfo  = -303
 	SJWTRetErrSIPHdrEmpty = -304
+	SJWTRetErrSIPHdrInfo  = -305
 	// http and file operations errors: -400..-499
 	SJWTRetErrHTTPInvalidURL = -401
 	SJWTRetErrHTTPGet        = -402
