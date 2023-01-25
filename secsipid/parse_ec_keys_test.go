@@ -151,7 +151,7 @@ func TestParseECPublicKeyFromPEM(t *testing.T) {
 			inputPem: invalidCert,
 
 			expectedErrCode: secsipid.SJWTRetErrCertInvalid,
-			expectedErrMsg:  "asn1: structure error: tags don't match (16 vs {class:1 tag:9 length:110 isCompound:true}) {optional:false explicit:false application:false private:false defaultValue:<nil> tag:<nil> stringType:0 timeType:0 set:false omitEmpty:false} certificate @2",
+			expectedErrMsg:  "x509: malformed certificate",
 		})
 	})
 
