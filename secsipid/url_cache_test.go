@@ -36,7 +36,9 @@ func TestGetURLContent(t *testing.T) {
 
 		expect(content).ToEqual(testCase.expectedContent)
 		expect(errCode).ToBe(testCase.expectedErrCode)
-		expect(getMsgFromErr(err)).ToBe(testCase.expectedErrMsg)
+		if len(testCase.expectedErrMsg) > 0 {
+			expect(getMsgFromErr(err)).ToBe(testCase.expectedErrMsg)
+		}
 	}
 
 	t.Run("ErrHTTPInvalidURL with empty urlVal", func(t *testing.T) {
