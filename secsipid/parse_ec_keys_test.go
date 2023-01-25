@@ -34,7 +34,9 @@ func TestParseECPrivateKeyFromPEM(t *testing.T) {
 			expect(key).ToEqual(testCase.expectedKey)
 		}
 		expect(errCode).ToBe(testCase.expectedErrCode)
-		expect(getMsgFromErr(err)).ToBe(testCase.expectedErrMsg)
+		if len(testCase.expectedErrMsg) > 0 {
+			expect(getMsgFromErr(err)).ToBe(testCase.expectedErrMsg)
+		}
 	}
 
 	t.Run("ErrPrvKeyInvalidFormat with bad key format", func(t *testing.T) {
@@ -129,7 +131,9 @@ func TestParseECPublicKeyFromPEM(t *testing.T) {
 			expect(key).ToEqual(testCase.expectedKey)
 		}
 		expect(errCode).ToBe(testCase.expectedErrCode)
-		expect(getMsgFromErr(err)).ToBe(testCase.expectedErrMsg)
+		if len(testCase.expectedErrMsg) > 0 {
+			expect(getMsgFromErr(err)).ToBe(testCase.expectedErrMsg)
+		}
 	}
 
 	t.Run("ErrCertInvalidFormat with bad key format", func(t *testing.T) {

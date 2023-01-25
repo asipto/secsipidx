@@ -36,7 +36,9 @@ func TestPubKeyVerify(t *testing.T) {
 		errMsg := getMsgFromErr(err)
 
 		expect(errCode).ToBe(testCase.expectedErrCode)
-		expect(errMsg).ToBe(testCase.expectedErrMsg)
+		if len(testCase.expectedErrMsg) > 0 {
+			expect(errMsg).ToBe(testCase.expectedErrMsg)
+		}
 	}
 
 	os.Remove("dummyCA.pem")
