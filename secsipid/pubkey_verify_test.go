@@ -101,7 +101,7 @@ func TestPubKeyVerify(t *testing.T) {
 			inputKey:   cert,
 
 			expectedErrCode: secsipid.SJWTRetErrCertInvalid,
-			expectedErrMsg:  "x509: certificate signed by unknown authority",
+			expectedErrMsg:  "x509: “Bar, Inc.” certificate is using a broken key size",
 		})
 	})
 
