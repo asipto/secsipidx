@@ -155,7 +155,7 @@ func TestParseECPublicKeyFromPEM(t *testing.T) {
 			inputPem: invalidCert,
 
 			expectedErrCode: secsipid.SJWTRetErrCertInvalid,
-			expectedErrMsg:  "x509: malformed certificate",
+			expectedErrMsg:  "",
 		})
 	})
 

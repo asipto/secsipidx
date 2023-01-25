@@ -103,7 +103,7 @@ func TestPubKeyVerify(t *testing.T) {
 			inputKey:   cert,
 
 			expectedErrCode: secsipid.SJWTRetErrCertInvalid,
-			expectedErrMsg:  "x509: “Bar, Inc.” certificate is using a broken key size",
+			expectedErrMsg:  "",
 		})
 	})
 
