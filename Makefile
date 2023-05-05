@@ -8,12 +8,12 @@ all: tool lib
 
 .PHONY: tool
 tool:
-	GO111MODULE=off ${GO} build -o ${TOOLNAME} .
+	GO111MODULE=${GO111MODVAL} ${GO} build -o ${TOOLNAME} .
 
 .PHONY: lib
 lib:
-	GO111MODULE=off $(MAKE) -C csecsipid/ libso
-	GO111MODULE=off $(MAKE) -C csecsipid/ liba
+	GO111MODULE=${GO111MODVAL} $(MAKE) -C csecsipid/ libso
+	GO111MODULE=${GO111MODVAL} $(MAKE) -C csecsipid/ liba
 
 .PHONY: install-tool
 install-tool:

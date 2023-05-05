@@ -24,14 +24,14 @@ libso:
 	rm -rf ${SOLIBNAME}
 	rm -rf ${SOBASENAME}
 	rm -rf ${SOREALNAME}
-	GO111MODULE=off go build ${LD_OPTS} -o ${SOBASENAME} -buildmode=c-shared csecsipid.go
+	GO111MODULE=${GO111MODVAL} go build ${LD_OPTS} -o ${SOBASENAME} -buildmode=c-shared csecsipid.go
 	mv ${SOBASENAME} ${SOREALNAME}
 	ln -s ${SOREALNAME} ${SOLIBNAME}
 	ln -s ${SOREALNAME} ${SOBASENAME}
 
 .PHONY: liba
 liba:
-	GO111MODULE=off go build -o ${ABASENAME} -buildmode=c-archive csecsipid.go
+	GO111MODULE=${GO111MODVAL} go build -o ${ABASENAME} -buildmode=c-archive csecsipid.go
 
 
 .PHONY: install-libso

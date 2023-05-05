@@ -7,7 +7,9 @@ PREFIX ?= /usr/local
 BASENAME ?= secsipid
 TOOLNAME ?= secsipidx
 
-GO=go
+GO111MODVAL ?= off
+
+GO ?= go
 
 OS := $(shell uname -s | sed -e s/SunOS/solaris/ -e s/CYGWIN.*/cygwin/ \
 		 | tr "[A-Z]" "[a-z]" | tr "/" "_")
