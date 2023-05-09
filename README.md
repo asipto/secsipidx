@@ -7,7 +7,7 @@ Release: Feb 23, 2022
 
 ## Overview ##
 
-Applications and libraries implementing STIR and SHAKEN (RFC8224, RFC8588),
+Applications and libraries implementing STIR/SHAKEN (RFC8224, RFC8588),
 used in SIP/VoIP services:
 
   * RFC8224 - https://tools.ietf.org/html/rfc8224
@@ -15,8 +15,8 @@ used in SIP/VoIP services:
 
 Components:
 
-  * `secsipid`: Go library - common functions
-  * `csecsipid`: C library - wrapper code to build dynamic or static library and .h include files
+  * `secsipid`: Go STIR/SHAKEN library - common functions for STIR/SHAKEN
+  * `csecsipid`: C STIR/SHAKEN ibrary - wrapper code to build dynamic or static library and .h include files
   * `secsipidx`: `main.go` - CLI tool and HTTP API server for checking or building SIP identity
 
 ## secsipidx ##
