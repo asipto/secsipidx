@@ -7,7 +7,7 @@ import (
 )
 
 // SecSIPIDSignJSONHP --
-// * sign the JSON header and payload with provided private key
+// * sign the JSON header and payload with provided private key file path
 // * headerJSON -  header part in JSON forman (0-terminated string)
 // * payloadJSON -  payload part in JSON forman (0-terminated string)
 // * prvkeyPath - path to private key to be used to generate the signature
@@ -17,6 +17,21 @@ import (
 //export SecSIPIDSignJSONHP
 func SecSIPIDSignJSONHP(headerJSON *C.char, payloadJSON *C.char, prvkeyPath *C.char, outPtr **C.char) C.int {
 	signature, _, _ := secsipid.SJWTEncodeText(C.GoString(headerJSON), C.GoString(payloadJSON), C.GoString(prvkeyPath))
+	*outPtr = C.CString(signature)
+	return C.int(len(signature))
+}
+
+// SecSIPIDSignJSONHPPrvKey --
+// * sign the JSON header and payload with provided private key data
+// * headerJSON -  header part in JSON forman (0-terminated string)
+// * payloadJSON -  payload part in JSON forman (0-terminated string)
+// * prvkeyData - private key data to be used to generate the signature
+// * outPtr - to be set to the pointer containing the output (it is a
+//   0-terminated string); the `*outPtr` must be freed after use
+// * return: the length of `*outPtr`
+//export SecSIPIDSignJSONHPPrvKey
+func SecSIPIDSignJSONHPPrvKey(headerJSON *C.char, payloadJSON *C.char, prvkeyData *C.char, outPtr **C.char) C.int {
+	signature, _, _ := secsipid.SJWTEncodeTextWithPrvKey(C.GoString(headerJSON), C.GoString(payloadJSON), C.GoString(prvkeyData))
 	*outPtr = C.CString(signature)
 	return C.int(len(signature))
 }
