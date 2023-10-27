@@ -670,6 +670,27 @@ func SJWTEncodeText(headerJSON string, payloadJSON string, prvkeyPath string) (s
 	return signingValue + "." + signatureValue, SJWTRetOK, nil
 }
 
+// SJWTEncodeTextWithPrvKey - encode header and payload to JWT with private key data
+func SJWTEncodeTextWithPrvKey(headerJSON string, payloadJSON string, prvkeyData string) (string, int, error) {
+	var ret int
+	var err error
+	var signatureValue string
+	var ecdsaPrvKey *ecdsa.PrivateKey
+
+
+	if ecdsaPrvKey, ret, err = SJWTParseECPrivateKeyFromPEM([]byte(prvkeyData)); err != nil {
+		return "", ret, err
+	}
+
+	signingValue := SJWTBase64EncodeString(strings.TrimSpace(headerJSON)) +
+		"." + SJWTBase64EncodeString(strings.TrimSpace(payloadJSON))
+	signatureValue, ret, err = SJWTSignWithPrvKey(signingValue, ecdsaPrvKey)
+	if err != nil {
+		return "", ret, fmt.Errorf("failed to build signature: %v", err)
+	}
+	return signingValue + "." + signatureValue, SJWTRetOK, nil
+}
+
 // SJWTCheckAttributes - implements the verify of attributes
 func SJWTCheckAttributes(bToken string, paramInfo string) (int, error) {
 	vHeader, err := SJWTBase64DecodeString(bToken)
