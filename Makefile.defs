@@ -7,7 +7,7 @@ PREFIX ?= /usr/local
 BASENAME ?= secsipid
 TOOLNAME ?= secsipidx
 
-GO111MODVAL ?= off
+GO111MODVAL ?= on
 
 GO ?= go
 
