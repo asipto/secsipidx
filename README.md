@@ -28,13 +28,14 @@ Install Go language (golang), guidelines at:
   * https://golang.org
   * https://golang.org/doc/install
 
-**Note**: When using Go version 1.16 or later, it's necessary to set the environment variable
-`GO111MODULE` to `off` prior to executing the `go get` or `make` commands below. When using an
-`sh`-compatible shell, this can be accomplished with `export GO111MODULE=off`. If fails when
-using `GO111MODULE=off`, try with `GO111MODULE=on`.
+**Note**: When using some specific Go versions (e.g., 1.16), it is necessary to set the
+ environment variable `GO111MODULE` to `off` prior to executing the `go get` or `make` commands.
+ Its value can be specified via `GO111MODVAL` variable for `Makefile`, which is defined inside
+ `Makefile.defs`. It can be also set in the command line, like:
 
-
-***
+```
+GO111MODVAL=off make
+```
 
 Deploy the `secsipidx` tool with:
 
