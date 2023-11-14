@@ -7,6 +7,11 @@ PREFIX ?= /usr/local
 BASENAME ?= secsipid
 TOOLNAME ?= secsipidx
 
+LIBVERMAJ ?= 1
+LIBVERMIN ?= 3
+LIBVERLEV ?= 2
+LIBVERSION ?= ${LIBVERMAJ}.${LIBVERMIN}.${LIBVERLEV}
+
 GO111MODVAL ?= on
 
 GO ?= go
