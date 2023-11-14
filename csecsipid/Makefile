@@ -4,8 +4,8 @@
 include ../Makefile.defs
 
 SOBASENAME=libsecsipid.so
-SOLIBNAME=${SOBASENAME}.1
-SOREALNAME=${SOBASENAME}.1.0.0
+SOLIBNAME=${SOBASENAME}.${LIBVERSIONMAJOR}
+SOREALNAME=${SOBASENAME}.${LIBVERSION}
 
 ifneq ($(OS), darwin)
 LD_FLAGS += -extldflags=-Wl,-soname,${SOLIBNAME}
