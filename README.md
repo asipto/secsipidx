@@ -2,8 +2,8 @@
 
 Secure SIP/Telephony Identity Extensions.
 
-Last Version: 1.3.0
-Release: Nov 30, 2023
+Last Version: 1.3.2
+Release: Nov 15, 2023
 
 ## Overview ##
 
