@@ -4,7 +4,7 @@
 include ../Makefile.defs
 
 SOBASENAME=libsecsipid.so
-SOLIBNAME=${SOBASENAME}.${LIBVERSIONMAJOR}
+SOLIBNAME=${SOBASENAME}.${LIBVERMAJ}
 SOREALNAME=${SOBASENAME}.${LIBVERSION}
 
 ifneq ($(OS), darwin)
