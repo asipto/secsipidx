@@ -71,7 +71,7 @@ func TestGetURLContent(t *testing.T) {
 
 	t.Run("OK with cached value", func(t *testing.T) {
 		workDir, _ := os.Getwd()
-		secsipid.SetURLFileCacheOptions(workDir, int(time.Hour))
+		secsipid.SetURLFileCacheOptions(workDir, 3600)
 		os.WriteFile("http_example.com_foo", []byte("Hello, world"), 0777)
 
 		runTest(t, GetURLValueTest{
@@ -88,7 +88,7 @@ func TestGetURLContent(t *testing.T) {
 
 	t.Run("ErrHTTPGet with no cache file and no running server", func(t *testing.T) {
 		workDir, _ := os.Getwd()
-		secsipid.SetURLFileCacheOptions(workDir, int(time.Hour))
+		secsipid.SetURLFileCacheOptions(workDir, 3600)
 		defer secsipid.SetURLFileCacheOptions("", 0)
 
 		runTest(t, GetURLValueTest{
@@ -188,7 +188,7 @@ func TestGetURLContent(t *testing.T) {
 
 	t.Run("OK and caches if cacheDirPath is set", func(t *testing.T) {
 		workDir, _ := os.Getwd()
-		secsipid.SetURLFileCacheOptions(workDir, int(time.Hour))
+		secsipid.SetURLFileCacheOptions(workDir, 3600)
 
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("Hello from the server!"))
