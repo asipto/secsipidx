@@ -58,7 +58,7 @@ const (
 	SJWTRetErrJSONSignatureHashing  = -252
 	SJWTRetErrJSONSignatureSize     = -253
 	SJWTRetErrJSONSignatureFailure  = -254
-	SJWTRetErrJSONSignatureNob64  = -255
+	SJWTRetErrJSONSignatureNob64    = -255
 	// identity SIP header errors: -300..-399
 	SJWTRetErrSIPHdrParse = -301
 	SJWTRetErrSIPHdrAlg   = -302
@@ -107,6 +107,7 @@ type SJWTLibOptions struct {
 	certCAInter  string
 	certCRLFile  string
 	certVerify   int
+	attrsVerify  int
 	x5u          string
 }
 
@@ -117,6 +118,7 @@ var globalLibOptions = SJWTLibOptions{
 	certCAInter:  "",
 	certCRLFile:  "",
 	certVerify:   0,
+	attrsVerify:  1,
 	x5u:          "https://127.0.0.1/cert.pem",
 }
 
@@ -161,6 +163,9 @@ func SJWTLibOptSetN(optname string, optval int) int {
 		return SJWTRetOK
 	case "CertVerify":
 		globalLibOptions.certVerify = optval
+		return SJWTRetOK
+	case "AttrsVerify":
+		globalLibOptions.attrsVerify = optval
 		return SJWTRetOK
 	}
 	return SJWTRetErr
@@ -677,7 +682,6 @@ func SJWTEncodeTextWithPrvKey(headerJSON string, payloadJSON string, prvkeyData 
 	var signatureValue string
 	var ecdsaPrvKey *ecdsa.PrivateKey
 
-
 	if ecdsaPrvKey, ret, err = SJWTParseECPrivateKeyFromPEM([]byte(prvkeyData)); err != nil {
 		return "", ret, err
 	}
@@ -693,6 +697,11 @@ func SJWTEncodeTextWithPrvKey(headerJSON string, payloadJSON string, prvkeyData 
 
 // SJWTCheckAttributes - implements the verify of attributes
 func SJWTCheckAttributes(bToken string, paramInfo string) (int, error) {
+
+	if globalLibOptions.attrsVerify == 0 {
+		return SJWTRetOK, nil
+	}
+
 	vHeader, err := SJWTBase64DecodeString(bToken)
 
 	header := SJWTHeader{}
