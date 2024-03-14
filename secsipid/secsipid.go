@@ -171,6 +171,19 @@ func SJWTLibOptSetN(optname string, optval int) int {
 	return SJWTRetErr
 }
 
+// SJWTLibOptGetN --
+func SJWTLibOptGetN(optname string) int {
+	switch optname {
+	case "CacheExpires":
+		return globalLibOptions.cacheExpire
+	case "CertVerify":
+		return globalLibOptions.certVerify
+	case "AttrsVerify":
+		return globalLibOptions.attrsVerify
+	}
+	return SJWTRetErr
+}
+
 // SJWTLibOptSetV --
 func SJWTLibOptSetV(optnameval string) int {
 	optArray := strings.SplitN(optnameval, "=", 2)
