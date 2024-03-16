@@ -7,13 +7,14 @@ import (
 )
 
 // SecSIPIDSignJSONHP --
-// * sign the JSON header and payload with provided private key file path
-// * headerJSON -  header part in JSON forman (0-terminated string)
-// * payloadJSON -  payload part in JSON forman (0-terminated string)
-// * prvkeyPath - path to private key to be used to generate the signature
-// * outPtr - to be set to the pointer containing the output (it is a
-//   0-terminated string); the `*outPtr` must be freed after use
-// * return: the length of `*outPtr`
+//   - sign the JSON header and payload with provided private key file path
+//   - headerJSON -  header part in JSON forman (0-terminated string)
+//   - payloadJSON -  payload part in JSON forman (0-terminated string)
+//   - prvkeyPath - path to private key to be used to generate the signature
+//   - outPtr - to be set to the pointer containing the output (it is a
+//     0-terminated string); the `*outPtr` must be freed after use
+//   - return: the length of `*outPtr`
+//
 //export SecSIPIDSignJSONHP
 func SecSIPIDSignJSONHP(headerJSON *C.char, payloadJSON *C.char, prvkeyPath *C.char, outPtr **C.char) C.int {
 	signature, _, _ := secsipid.SJWTEncodeText(C.GoString(headerJSON), C.GoString(payloadJSON), C.GoString(prvkeyPath))
@@ -22,13 +23,14 @@ func SecSIPIDSignJSONHP(headerJSON *C.char, payloadJSON *C.char, prvkeyPath *C.c
 }
 
 // SecSIPIDSignJSONHPPrvKey --
-// * sign the JSON header and payload with provided private key data
-// * headerJSON -  header part in JSON forman (0-terminated string)
-// * payloadJSON -  payload part in JSON forman (0-terminated string)
-// * prvkeyData - private key data to be used to generate the signature
-// * outPtr - to be set to the pointer containing the output (it is a
-//   0-terminated string); the `*outPtr` must be freed after use
-// * return: the length of `*outPtr`
+//   - sign the JSON header and payload with provided private key data
+//   - headerJSON -  header part in JSON forman (0-terminated string)
+//   - payloadJSON -  payload part in JSON forman (0-terminated string)
+//   - prvkeyData - private key data to be used to generate the signature
+//   - outPtr - to be set to the pointer containing the output (it is a
+//     0-terminated string); the `*outPtr` must be freed after use
+//   - return: the length of `*outPtr`
+//
 //export SecSIPIDSignJSONHPPrvKey
 func SecSIPIDSignJSONHPPrvKey(headerJSON *C.char, payloadJSON *C.char, prvkeyData *C.char, outPtr **C.char) C.int {
 	signature, _, _ := secsipid.SJWTEncodeTextWithPrvKey(C.GoString(headerJSON), C.GoString(payloadJSON), C.GoString(prvkeyData))
@@ -38,15 +40,16 @@ func SecSIPIDSignJSONHPPrvKey(headerJSON *C.char, payloadJSON *C.char, prvkeyDat
 
 // SecSIPIDGetIdentity --
 // Generate the Identity header content using the input attributes
-// * origTN - calling number
-// * destTN - called number
-// * attestVal - attestation level
-// * origID - unique ID for tracking purposes, if empty string a UUID is generated
-// * x5uVal - location of public certificate
-// * prvkeyPath - path to private key to be used to generate the signature
-// * outPtr - to be set to the pointer containing the output (it is a
-//   0-terminated string); the `*outPtr` must be freed after use
-// * return: the length of `*outPtr` on success or error return code (< 0)
+//   - origTN - calling number
+//   - destTN - called number
+//   - attestVal - attestation level
+//   - origID - unique ID for tracking purposes, if empty string a UUID is generated
+//   - x5uVal - location of public certificate
+//   - prvkeyPath - path to private key to be used to generate the signature
+//   - outPtr - to be set to the pointer containing the output (it is a
+//     0-terminated string); the `*outPtr` must be freed after use
+//   - return: the length of `*outPtr` on success or error return code (< 0)
+//
 //export SecSIPIDGetIdentity
 func SecSIPIDGetIdentity(origTN *C.char, destTN *C.char, attestVal *C.char, origID *C.char, x5uVal *C.char, prvkeyPath *C.char, outPtr **C.char) C.int {
 	signature, ret, _ := secsipid.SJWTGetIdentity(C.GoString(origTN), C.GoString(destTN), C.GoString(attestVal), C.GoString(origID), C.GoString(x5uVal), C.GoString(prvkeyPath))
@@ -59,15 +62,16 @@ func SecSIPIDGetIdentity(origTN *C.char, destTN *C.char, attestVal *C.char, orig
 
 // SecSIPIDGetIdentityPrvKey --
 // Generate the Identity header content using the input attributes
-// * origTN - calling number
-// * destTN - called number
-// * attestVal - attestation level
-// * origID - unique ID for tracking purposes, if empty string a UUID is generated
-// * x5uVal - location of public certificate
-// * prvkeyData - content of private key to be used to generate the signature
-// * outPtr - to be set to the pointer containing the output (it is a
-//   0-terminated string); the `*outPtr` must be freed after use
-// * return: the length of `*outPtr` on success or error return code (< 0)
+//   - origTN - calling number
+//   - destTN - called number
+//   - attestVal - attestation level
+//   - origID - unique ID for tracking purposes, if empty string a UUID is generated
+//   - x5uVal - location of public certificate
+//   - prvkeyData - content of private key to be used to generate the signature
+//   - outPtr - to be set to the pointer containing the output (it is a
+//     0-terminated string); the `*outPtr` must be freed after use
+//   - return: the length of `*outPtr` on success or error return code (< 0)
+//
 //export SecSIPIDGetIdentityPrvKey
 func SecSIPIDGetIdentityPrvKey(origTN *C.char, destTN *C.char, attestVal *C.char, origID *C.char, x5uVal *C.char, prvkeyData *C.char, outPtr **C.char) C.int {
 	signature, ret, _ := secsipid.SJWTGetIdentityPrvKey(C.GoString(origTN), C.GoString(destTN), C.GoString(attestVal), C.GoString(origID), C.GoString(x5uVal), []byte(C.GoString(prvkeyData)))
@@ -80,13 +84,14 @@ func SecSIPIDGetIdentityPrvKey(origTN *C.char, destTN *C.char, attestVal *C.char
 
 // SecSIPIDCheck --
 // check the Identity header value
-// * identityVal - identity header value
-// * identityLen - length of identityVal, if is 0, identityVal is expected
-//   to be 0-terminated
-// * expireVal - number of seconds until the validity is considered expired
-// * pubkeyPath - file path or URL to public key
-// * timeoutVal - timeout in seconds to try to fetch the public key via HTTP
-// * return: 0 - if validity is ok; <0 - on error or validity is not ok
+//   - identityVal - identity header value
+//   - identityLen - length of identityVal, if is 0, identityVal is expected
+//     to be 0-terminated
+//   - expireVal - number of seconds until the validity is considered expired
+//   - pubkeyPath - file path or URL to public key
+//   - timeoutVal - timeout in seconds to try to fetch the public key via HTTP
+//   - return: 0 - if validity is ok; <0 - on error or validity is not ok
+//
 //export SecSIPIDCheck
 func SecSIPIDCheck(identityVal *C.char, identityLen C.int, expireVal C.int, pubkeyPath *C.char, timeoutVal C.int) C.int {
 	var sIdentity string
@@ -100,15 +105,16 @@ func SecSIPIDCheck(identityVal *C.char, identityLen C.int, expireVal C.int, pubk
 }
 
 // SecSIPIDCheckFull --
-//export SecSIPIDCheckFull
 // check the Identity header value
-// * identityVal - identity header value with header parameters
-// * identityLen - length of identityVal, if it is 0, identityVal is expected
-//   to be 0-terminated
-// * expireVal - number of seconds until the validity is considered expired
-// * pubkeyPath - file path or URL to public key
-// * timeoutVal - timeout in seconds to try to fetch the public key via HTTP
-// * return: 0 - if validity is ok; <0 - on error or validity is not ok
+//   - identityVal - identity header value with header parameters
+//   - identityLen - length of identityVal, if it is 0, identityVal is expected
+//     to be 0-terminated
+//   - expireVal - number of seconds until the validity is considered expired
+//   - pubkeyPath - file path or URL to public key
+//   - timeoutVal - timeout in seconds to try to fetch the public key via HTTP
+//   - return: 0 - if validity is ok; <0 - on error or validity is not ok
+//
+//export SecSIPIDCheckFull
 func SecSIPIDCheckFull(identityVal *C.char, identityLen C.int, expireVal C.int, pubkeyPath *C.char, timeoutVal C.int) C.int {
 	var sIdentity string
 	if identityLen == 0 {
@@ -122,14 +128,15 @@ func SecSIPIDCheckFull(identityVal *C.char, identityLen C.int, expireVal C.int, 
 
 // SecSIPIDCheckFullPubKey --
 // check the Identity header value
-// * identityVal - identity header value with header parameters
-// * identityLen - length of identityVal, if it is 0, identityVal is expected
-//   to be 0-terminated
-// * expireVal - number of seconds until the validity is considered expired
-// * pubkeyVal - the value of the public key
-// * pubkeyLen - the length of the public key, if it is 0, then the pubkeyVal
-//   is expected to be 0-terminated
-// * return: 0 - if validity is ok; <0 - on error or validity is not ok
+//   - identityVal - identity header value with header parameters
+//   - identityLen - length of identityVal, if it is 0, identityVal is expected
+//     to be 0-terminated
+//   - expireVal - number of seconds until the validity is considered expired
+//   - pubkeyVal - the value of the public key
+//   - pubkeyLen - the length of the public key, if it is 0, then the pubkeyVal
+//     is expected to be 0-terminated
+//   - return: 0 - if validity is ok; <0 - on error or validity is not ok
+//
 //export SecSIPIDCheckFullPubKey
 func SecSIPIDCheckFullPubKey(identityVal *C.char, identityLen C.int, expireVal C.int, pubkeyVal *C.char, pubkeyLen C.int) C.int {
 	var sIdentity string
@@ -154,6 +161,7 @@ func SecSIPIDCheckFullPubKey(identityVal *C.char, identityLen C.int, expireVal C
 // * dirPath - path to local directory where to store the files
 // * expireVal - number of the seconds after which to invalidate the cached file
 // * return: 0
+//
 //export SecSIPIDSetFileCacheOptions
 func SecSIPIDSetFileCacheOptions(dirPath *C.char, expireVal C.int) C.int {
 	secsipid.SetURLFileCacheOptions(C.GoString(dirPath), int(expireVal))
@@ -162,12 +170,13 @@ func SecSIPIDSetFileCacheOptions(dirPath *C.char, expireVal C.int) C.int {
 
 // SecSIPIDGetURLContent --
 // get the content of an URL
-// * urlVal - the HTTP or HTTPS URL
-// * timeoutVal - timeout in seconds to try to get the content of the HTTP URL
-// * outPtr - to be set to the pointer containing the output (it is a
-//   0-terminated string); the `*outPtr` must be freed after use
-// * outLen: to be set to the length of `*outPtr`
-// * return: 0 - on success; -1 - on failure
+//   - urlVal - the HTTP or HTTPS URL
+//   - timeoutVal - timeout in seconds to try to get the content of the HTTP URL
+//   - outPtr - to be set to the pointer containing the output (it is a
+//     0-terminated string); the `*outPtr` must be freed after use
+//   - outLen: to be set to the length of `*outPtr`
+//   - return: 0 - on success; -1 - on failure
+//
 //export SecSIPIDGetURLContent
 func SecSIPIDGetURLContent(urlVal *C.char, timeoutVal C.int, outPtr **C.char, outLen *C.int) C.int {
 	content, ret, _ := secsipid.SJWTGetURLContent(C.GoString(urlVal), int(timeoutVal))
@@ -184,6 +193,7 @@ func SecSIPIDGetURLContent(urlVal *C.char, timeoutVal C.int, outPtr **C.char, ou
 // * optName - name of the option
 // * optVal - value of the option
 // * return: 0 if option was set, -1 otherwise
+//
 //export SecSIPIDOptSetS
 func SecSIPIDOptSetS(optName *C.char, optVal *C.char) C.int {
 	ret := secsipid.SJWTLibOptSetS(C.GoString(optName), C.GoString(optVal))
@@ -195,9 +205,21 @@ func SecSIPIDOptSetS(optName *C.char, optVal *C.char) C.int {
 // * optName - name of the option
 // * optVal - value of the option
 // * 0 if option was set, -1 otherwise
+//
 //export SecSIPIDOptSetN
 func SecSIPIDOptSetN(optName *C.char, optVal C.int) C.int {
 	ret := secsipid.SJWTLibOptSetN(C.GoString(optName), int(optVal))
+	return C.int(ret)
+}
+
+// SecSIPIDOptGetN --
+// get the number (integer) option from the library
+// * optName - name of the option
+// * return: option value if it was found, -1 otherwise
+//
+//export SecSIPIDOptGetN
+func SecSIPIDOptGetN(optName *C.char) C.int {
+	ret := secsipid.SJWTLibOptGetN(C.GoString(optName))
 	return C.int(ret)
 }
 
@@ -205,11 +227,11 @@ func SecSIPIDOptSetN(optName *C.char, optVal C.int) C.int {
 // set an option for the library
 // * optNameVal - string with name=value of the option
 // * 0 if option was set, -1 otherwise
+//
 //export SecSIPIDOptSetV
 func SecSIPIDOptSetV(optNameVal *C.char) C.int {
 	ret := secsipid.SJWTLibOptSetV(C.GoString(optNameVal))
 	return C.int(ret)
 }
 
-//
 func main() {}
