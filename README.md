@@ -19,9 +19,7 @@ Components:
   * `csecsipid`: C STIR/SHAKEN ibrary - wrapper code to build dynamic or static library and .h include files
   * `secsipidx`: `main.go` - CLI tool and HTTP API server for checking or building SIP identity
 
-## secsipidx ##
-
-### Installation ###
+## Installation ##
 
 Install Go language (golang), guidelines at:
 
@@ -86,8 +84,6 @@ The following commands can be used to generate the private and public keys:
 openssl ecparam -name prime256v1 -genkey -noout -out ec256-private.pem
 openssl ec -in ec256-private.pem -pubout -out ec256-public.pem
 ```
-
-### Usage ###
 
 #### CLI - Generate Full Identity Header ####
 
