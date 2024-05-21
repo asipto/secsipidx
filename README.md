@@ -1,10 +1,34 @@
-# secsipidx #
+# SecSIPIdX Project #
 
 Secure SIP/Telephony Identity Extensions.
 
 Last Version: 1.3.2
 Release: Nov 15, 2023
 
+## Table Of Content ##
+
+- [secsipidx](#secsipidx-project)
+   * [Overview](#overview)
+   * [secsipidx](#secsipidx)
+      + [Installation](#installation)
+   * [Usage](#usage)
+      + [Keys Generation](#keys-generation)
+      + [Tools Usage](#tools-usage)
+         - [CLI - Generate Full Identity Header](#cli-generate-full-identity-header)
+         - [CLI - Check Full Identity Header](#cli-check-full-identity-header)
+         - [HTTP Server](#http-server)
+            * [Check Identity](#check-identity)
+            * [Generate Identity - CSV API](#generate-identity-csv-api)
+            * [HTTP File Server](#http-file-server)
+      + [Certificate Verification](#certificate-verification)
+   * [Certificate Caching](#certificate-caching)
+   * [C API](#c-api)
+      + [C Library Options](#c-library-options)
+   * [To-Do](#to-do)
+   * [Copyright](#copyright)
+   * [Contributing](#contributing)
+   * [Testing](#testing)
+  
 ## Overview ##
 
 Applications and libraries implementing STIR/SHAKEN (RFC8224, RFC8588),
@@ -84,6 +108,8 @@ The following commands can be used to generate the private and public keys:
 openssl ecparam -name prime256v1 -genkey -noout -out ec256-private.pem
 openssl ec -in ec256-private.pem -pubout -out ec256-public.pem
 ```
+
+### Tools Usage ###
 
 #### CLI - Generate Full Identity Header ####
 
