@@ -1,11 +1,11 @@
-# SecSIPIdX Project #
+# SecSIPIdX Project
 
 Secure SIP/Telephony Identity Extensions.
 
 Last Version: 1.3.2
 Release: Nov 15, 2023
 
-## Table Of Content ##
+## Table Of Content
 
 - [secsipidx](#secsipidx-project)
    * [Overview](#overview)
@@ -29,7 +29,7 @@ Release: Nov 15, 2023
    * [Contributing](#contributing)
    * [Testing](#testing)
   
-## Overview ##
+## Overview
 
 Applications and libraries implementing STIR/SHAKEN (RFC8224, RFC8588),
 used in SIP/VoIP services:
@@ -43,7 +43,7 @@ Components:
   * `csecsipid`: C STIR/SHAKEN ibrary - wrapper code to build dynamic or static library and .h include files
   * `secsipidx`: `main.go` - CLI tool and HTTP API server for checking or building SIP identity
 
-## Installation ##
+## Installation
 
 Install Go language (golang), guidelines at:
 
@@ -90,7 +90,7 @@ make install
 The `secsipidx` tool is deployed to `/usr/local/bin/`. The `make install`
 deploys also the libraries and `C` headers.
 
-## Usage ##
+## Usage
 
 To see the available command line options, run:
 
@@ -98,7 +98,7 @@ To see the available command line options, run:
 secsipidx -h
 ```
 
-### Keys Generation ##
+### Keys Generation
 
 The `openssl` tool needs to be installed.
 
@@ -109,9 +109,9 @@ openssl ecparam -name prime256v1 -genkey -noout -out ec256-private.pem
 openssl ec -in ec256-private.pem -pubout -out ec256-public.pem
 ```
 
-### Tools Usage ###
+### Tools Usage
 
-#### CLI - Generate Full Identity Header ####
+#### CLI - Generate Full Identity Header
 
 A call from `+493044448888` to `+493055559999` with attestation level `A`, when the public key can be downloaded from `http://asipto.lab/stir/cert.pem`:
 
@@ -119,7 +119,7 @@ A call from `+493044448888` to `+493055559999` with attestation level `A`, when 
 secsipidx -sign-full -orig-tn 493044448888 -dest-tn 493055559999 -attest A -x5u http://asipto.lab/stir/cert.pem -k ec256-private.pem
 ```
 
-#### CLI - Check Full Identity Header ####
+#### CLI - Check Full Identity Header
 
 Check the identity header stored in file `identity.txt` using the public key in file `ec256-public.pem` with token expire of 3600 seconds
 
@@ -127,7 +127,7 @@ Check the identity header stored in file `identity.txt` using the public key in 
 secsipidx -check -fidentity identity.txt -fpubkey ec256-public.pem -expire 3600
 ```
 
-#### HTTP Server ####
+#### HTTP Server
 
 Run `secsipidx` as an HTTP server listening on port `8090` for checking SIP identity with public key from file `ec256-public.pem`:
 
@@ -148,7 +148,7 @@ openssl ecparam -genkey -name secp384r1 -out secsipidx-private.key
 openssl req -new -x509 -sha256 -key secsipidx-private.key -out secsipidx-public.key -days 365
 ```
 
-##### Check Identity #####
+##### Check Identity
 
 If the identity header body is saved in the file `identity.txt`, the next command can be used to check it:
 
@@ -160,7 +160,7 @@ If `secsipidx` is started without `-fpubkey` or `-pubkey`, then the public key t
 is downloaded from `x5u` URL (or the header `info` parameter). The value of `-timeout` parameter
 is used to limit the download time of the public key via HTTP.
 
-##### Generate Identity - CSV API #####
+##### Generate Identity - CSV API
 
 Prototype:
 
@@ -176,12 +176,12 @@ Example to get the `Identity` header value:
 curl --data '493044442222,493088886666,A,,https://asipto.lab/v1/pub/cert.pem' http://127.0.0.1:8090/v1/sign-csv
 ```
 
-##### HTTP File Server #####
+##### HTTP File Server
 
 When started with parameter `-httpdir`, the `secsipidx` servers the files from the respective
 directory on the URL path `/v1/pub/`.
 
-### Certificate Verification ###
+### Certificate Verification
 
 The certificate retrieved from peers can be verified against system CAs or a list of
 CAs stored in a file. The path to custom CAs files can be set via `--ca-file` and
@@ -203,7 +203,7 @@ together with time validity checks.
 
 If `--cert-verify` is `0`, no verification is performed.
 
-## Certificate Caching ##
+## Certificate Caching
 
 There is support for a basic caching mechanism of the public keys in local files.
 
@@ -234,7 +234,7 @@ if(secsipid_check_identity("")) { ... }
 unlock("$var(url)");
 ```
 
-## C API ##
+## C API
 
 The code to get the `C` library is located in the `csecsipid` directory.
 
@@ -256,7 +256,7 @@ The prototype of functions exported to `C` API and documentation are int the fil
 
   * https://github.com/asipto/secsipidx/blob/main/csecsipid/libsecsipid.h
 
-### C Library Options ###
+### C Library Options
 
 The library options that can be set with `SecSIPIDOptSetS()`, `SecSIPIDOptSetN()`
 or `SecSIPIDOptSetV()`:
@@ -271,7 +271,7 @@ or `SecSIPIDOptSetV()`:
   * `CertCAInter` (str) - the path with the custom intermediate CA certificates
   * `CertCRLFile` (str) - the path with the certificate revocation list
 
-## To-Do ##
+## To-Do
 
   * external cache (e.g., use of Redis) of downloaded public keys used to verify
   Identity signatures
@@ -279,13 +279,13 @@ or `SecSIPIDOptSetV()`:
   * support more data formats for HTTP API (e.g., JSON for generating Identity)
   * configuration file
 
-## Copyright ##
+## Copyright
 
 License: `BSD 3-Clause Clear License`
 
 Copyright: © 2020-2021 asipto.com
 
-## Contributing ##
+## Contributing
 
 Bug reports and requests for new features have to be filled to:
 
@@ -297,7 +297,7 @@ Code contributions have to be made via pull requests at:
 
 The code of the pull requests is considered to be licensed under BSD license, unless explicitly requested to be a different license and agreed by the developers before merging.
 
-## Testing ##
+## Testing
 
 To test the secsipid library, `cd` into `secsipid/` and run:
 ```bash
