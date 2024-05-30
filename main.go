@@ -422,7 +422,7 @@ func startHTTPServices() chan error {
 	// starting HTTP server
 	if len(cliops.httpsrv) > 0 {
 		go func() {
-			log.Printf("staring HTTP service on: %s ...", cliops.httpsrv)
+			log.Printf("starting HTTP service on: %s ...", cliops.httpsrv)
 
 			if err := http.ListenAndServe(cliops.httpsrv, nil); err != nil {
 				errchan <- err
@@ -434,7 +434,7 @@ func startHTTPServices() chan error {
 	// starting HTTPS server
 	if len(cliops.httpssrv) > 0 && len(cliops.httpspubkey) > 0 && len(cliops.httpsprvkey) > 0 {
 		go func() {
-			log.Printf("Staring HTTPS service on: %s ...", cliops.httpssrv)
+			log.Printf("Starting HTTPS service on: %s ...", cliops.httpssrv)
 			if err := http.ListenAndServeTLS(cliops.httpssrv, cliops.httpspubkey, cliops.httpsprvkey, nil); err != nil {
 				errchan <- err
 			}
