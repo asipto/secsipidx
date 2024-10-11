@@ -270,6 +270,10 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 			return SJWTRetErrCertBeforeValidity, errors.New("certificate not valid yet")
 		}
 	}
+	// verify time validity only
+	if globalLibOptions.certVerify == 1 {
+		return SJWTRetOK, nil
+	}
 
 	rootCAs = nil
 	interCAs = nil
