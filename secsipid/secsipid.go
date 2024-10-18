@@ -111,6 +111,14 @@ type SJWTLibOptions struct {
 	x5u          string
 }
 
+const (
+	CertVerifyOptTime    = (1 << 0)
+	CertVerifyOptSysCA   = (1 << 1)
+	CertVerifyOptCustCA  = (1 << 2)
+	CertVerifyOptInterCA = (1 << 3)
+	CertVerifyOptCRL     = (1 << 4)
+)
+
 var globalLibOptions = SJWTLibOptions{
 	cacheDirPath: "",
 	cacheExpire:  3600,
@@ -263,7 +271,7 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 		return SJWTRetErrCertInvalidFormat, errors.New("failed to parse certificate PEM")
 	}
 
-	if (globalLibOptions.certVerify & (1 << 0)) != 0 {
+	if (globalLibOptions.certVerify & CertVerifyOptTime) != 0 {
 		if !time.Now().Before(certVal.NotAfter) {
 			return SJWTRetErrCertExpired, errors.New("certificate expired")
 		} else if !time.Now().After(certVal.NotBefore) {
@@ -273,14 +281,14 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 
 	rootCAs = nil
 	interCAs = nil
-	if (globalLibOptions.certVerify & (1 << 1)) != 0 {
+	if (globalLibOptions.certVerify & CertVerifyOptSysCA) != 0 {
 		// Get the SystemCertPool
 		rootCAs, err = SystemCertPool()
 		if rootCAs == nil {
 			return SJWTRetErrCertProcessing, err
 		}
 	}
-	if (globalLibOptions.certVerify & (1 << 2)) != 0 {
+	if (globalLibOptions.certVerify & CertVerifyOptCustCA) != 0 {
 		if len(globalLibOptions.certCAFile) <= 0 {
 			return SJWTRetErrCertNoCAFile, errors.New("no CA file")
 		}
@@ -303,7 +311,7 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 			return SJWTRetErrCertProcessing, errors.New("failed to append CA file")
 		}
 	}
-	if (globalLibOptions.certVerify & (1 << 3)) != 0 {
+	if (globalLibOptions.certVerify & CertVerifyOptInterCA) != 0 {
 		if len(globalLibOptions.certCAInter) <= 0 {
 			return SJWTRetErrCertNoCAInter, errors.New("no intermediate CA file")
 		}
@@ -348,7 +356,7 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 		return SJWTRetErrCertInvalid, err
 	}
 
-	if (globalLibOptions.certVerify & (1 << 4)) != 0 {
+	if (globalLibOptions.certVerify & CertVerifyOptCRL) != 0 {
 		if len(globalLibOptions.certCRLFile) <= 0 {
 			return SJWTRetErrCertNoCRLFile, errors.New("no CRL file")
 		}
