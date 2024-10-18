@@ -112,11 +112,12 @@ type SJWTLibOptions struct {
 }
 
 const (
-	CertVerifyOptTime    = (1 << 0)
-	CertVerifyOptSysCA   = (1 << 1)
-	CertVerifyOptCustCA  = (1 << 2)
-	CertVerifyOptInterCA = (1 << 3)
-	CertVerifyOptCRL     = (1 << 4)
+	CertVerifyOptTime     = (1 << 0)
+	CertVerifyOptSysCA    = (1 << 1)
+	CertVerifyOptCustCA   = (1 << 2)
+	CertVerifyOptInterCA  = (1 << 3)
+	CertVerifyOptCRL      = (1 << 4)
+	CertVerifyOptTimeOnly = (1 << 5)
 )
 
 var globalLibOptions = SJWTLibOptions{
@@ -271,12 +272,16 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 		return SJWTRetErrCertInvalidFormat, errors.New("failed to parse certificate PEM")
 	}
 
-	if (globalLibOptions.certVerify & CertVerifyOptTime) != 0 {
+	if (globalLibOptions.certVerify & (CertVerifyOptTime | CertVerifyOptTimeOnly)) != 0 {
 		if !time.Now().Before(certVal.NotAfter) {
 			return SJWTRetErrCertExpired, errors.New("certificate expired")
 		} else if !time.Now().After(certVal.NotBefore) {
 			return SJWTRetErrCertBeforeValidity, errors.New("certificate not valid yet")
 		}
+	}
+
+	if (globalLibOptions.certVerify & CertVerifyOptTimeOnly) != 0 {
+		return SJWTRetOK, nil
 	}
 
 	rootCAs = nil
