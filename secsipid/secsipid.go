@@ -295,13 +295,13 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 	}
 	if (globalLibOptions.certVerify & CertVerifyOptCustCA) != 0 {
 		if len(globalLibOptions.certCAFile) <= 0 {
-			return SJWTRetErrCertNoCAFile, errors.New("no CA file")
+			return SJWTRetErrCertNoCAFile, errors.New("no custom CA file")
 		}
 
 		if rootCAs == nil {
 			rootCAs = x509.NewCertPool()
 			if rootCAs == nil {
-				return SJWTRetErrCertProcessing, errors.New("no new ca cert pool")
+				return SJWTRetErrCertProcessing, errors.New("no new CA cert pool")
 			}
 		}
 		var certsCA []byte
@@ -322,7 +322,7 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 		}
 		interCAs = x509.NewCertPool()
 		if interCAs == nil {
-			return SJWTRetErrCertProcessing, errors.New("no new ca intermediate cert pool")
+			return SJWTRetErrCertProcessing, errors.New("no new CA intermediate cert pool")
 		}
 		var certsCA []byte
 		// Read in the cert file
@@ -343,7 +343,7 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 			interCAs = x509.NewCertPool()
 		}
 		if interCAs == nil {
-			return SJWTRetErrCertProcessing, errors.New("no new ca intermediate cert pool")
+			return SJWTRetErrCertProcessing, errors.New("no new CA intermediate cert pool")
 		}
 		// Append our certs
 		for _, iCert := range certInter {
