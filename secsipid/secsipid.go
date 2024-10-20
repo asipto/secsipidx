@@ -306,7 +306,7 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 		}
 		var certsCA []byte
 		// Read in the cert file
-		certsCA, err = ioutil.ReadFile(globalLibOptions.certCAFile)
+		certsCA, err = os.ReadFile(globalLibOptions.certCAFile)
 		if err != nil {
 			return SJWTRetErrCertReadCAFile, errors.New("failed to read CA file")
 		}
@@ -326,7 +326,7 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 		}
 		var certsCA []byte
 		// Read in the cert file
-		certsCA, err = ioutil.ReadFile(globalLibOptions.certCAInter)
+		certsCA, err = os.ReadFile(globalLibOptions.certCAInter)
 		if err != nil {
 			return SJWTRetErrCertReadCAInter, errors.New("failed to read intermediate CA file")
 		}
@@ -369,7 +369,7 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 		rootCRL = nil
 		var certsCRLData []byte
 		// Read in the cert file
-		certsCRLData, err = ioutil.ReadFile(globalLibOptions.certCRLFile)
+		certsCRLData, err = os.ReadFile(globalLibOptions.certCRLFile)
 		if err != nil {
 			return SJWTRetErrCertReadCRLFile, errors.New("failed to read CRL file")
 		}
@@ -484,7 +484,7 @@ func SJWTGetURLCachedContent(urlVal string) ([]byte, error) {
 		os.Remove(filePath)
 		return nil, nil
 	}
-	return ioutil.ReadFile(filePath)
+	return os.ReadFile(filePath)
 }
 
 // SJWTSetURLCachedContent --
@@ -686,7 +686,7 @@ func SJWTEncodeText(headerJSON string, payloadJSON string, prvkeyPath string) (s
 	var signatureValue string
 	var ecdsaPrvKey *ecdsa.PrivateKey
 
-	prvkey, _ := ioutil.ReadFile(prvkeyPath)
+	prvkey, _ := os.ReadFile(prvkeyPath)
 
 	if ecdsaPrvKey, ret, err = SJWTParseECPrivateKeyFromPEM(prvkey); err != nil {
 		return "", ret, err
@@ -776,10 +776,10 @@ func SJWTCheckIdentityPKMode(identityVal string, expireVal int, pubkeyVal string
 			pubkey, ret, err = SJWTGetURLContent(pubkeyVal, timeoutVal)
 		} else if strings.HasPrefix(pubkeyVal, "file://") {
 			fileUrl, _ := url.Parse(pubkeyVal)
-			pubkey, err = ioutil.ReadFile(fileUrl.Path)
+			pubkey, err = os.ReadFile(fileUrl.Path)
 			ret = SJWTRetErrFileRead
 		} else {
-			pubkey, err = ioutil.ReadFile(pubkeyVal)
+			pubkey, err = os.ReadFile(pubkeyVal)
 			ret = SJWTRetErrFileRead
 		}
 		if err != nil {
@@ -1004,7 +1004,7 @@ func SJWTGetIdentity(origTN string, destTN string, attestVal string, origID stri
 	var prvkey []byte
 	var err error
 
-	prvkey, err = ioutil.ReadFile(prvkeyPath)
+	prvkey, err = os.ReadFile(prvkeyPath)
 	if err != nil {
 		return "", SJWTRetErrFileRead, fmt.Errorf("Unable to read private key file: %v", err)
 	}
