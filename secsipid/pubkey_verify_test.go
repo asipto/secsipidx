@@ -156,7 +156,7 @@ func TestPubKeyVerify(t *testing.T) {
 			inputKey:   cert,
 
 			expectedErrCode: secsipid.SJWTRetErrCertNoCAFile,
-			expectedErrMsg:  "no CA file",
+			expectedErrMsg:  "no custom CA file",
 		})
 	})
 
