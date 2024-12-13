@@ -65,6 +65,12 @@ Deploy the `secsipidx` tool with:
 go get github.com/asipto/secsipidx
 ```
 
+With newer Go versions, `go install` may have to be used instead of `go get`:
+
+```
+go install github.com/asipto/secsipidx
+```
+
 The tool is located in `$GOPATH/bin/secsipidx`.
 
 If you want to build and run locally:
