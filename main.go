@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -193,7 +192,11 @@ func localTest() {
 		},
 		OrigID: "32c7e392-33fc-11ea-840b-784f435c76a8",
 	}
-	prvkey, _ := ioutil.ReadFile("../test/certs/ec256-private.pem")
+	prvkey, err := os.ReadFile("../test/certs/ec256-private.pem")
+	if err != nil {
+		fmt.Printf("Unable to read ECDSA private key: %v\n", err)
+		return
+	}
 
 	var ecdsaPrvKey *ecdsa.PrivateKey
 	if ecdsaPrvKey, _, err = secsipid.SJWTParseECPrivateKeyFromPEM(prvkey); err != nil {
@@ -201,7 +204,11 @@ func localTest() {
 		return
 	}
 
-	pubkey, _ := ioutil.ReadFile("../test/certs/ec256-public.pem")
+	pubkey, err := os.ReadFile("../test/certs/ec256-public.pem")
+	if err != nil {
+		fmt.Printf("Unable to read ECDSA public key: %v\n", err)
+		return
+	}
 
 	var ecdsaPubKey *ecdsa.PublicKey
 	if ecdsaPubKey, _, err = secsipid.SJWTParseECPublicKeyFromPEM(pubkey); err != nil {
@@ -233,6 +240,14 @@ func secsipidxCLISignFull() int {
 	return 0
 }
 
+func readCLIFile(path string, label string) ([]byte, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read %s file %q: %w", label, path, err)
+	}
+	return data, nil
+}
+
 func secsipidxCLISign() int {
 	var err error
 	var useStruct bool
@@ -249,7 +264,11 @@ func secsipidxCLISign() int {
 
 	header := secsipid.SJWTHeader{}
 	if len(cliops.fheader) > 0 {
-		vHeader, _ := ioutil.ReadFile(cliops.fheader)
+		vHeader, err := readCLIFile(cliops.fheader, "header")
+		if err != nil {
+			fmt.Printf("%v\n", err)
+			return -1
+		}
 		if cliops.jsonparse {
 			err = json.Unmarshal(vHeader, &header)
 			if err != nil {
@@ -287,7 +306,11 @@ func secsipidxCLISign() int {
 	}
 	payload := secsipid.SJWTPayload{}
 	if len(cliops.fpayload) > 0 {
-		vPayload, _ := ioutil.ReadFile(cliops.fpayload)
+		vPayload, err := readCLIFile(cliops.fpayload, "payload")
+		if err != nil {
+			fmt.Printf("%v\n", err)
+			return -1
+		}
 		if cliops.jsonparse {
 			err = json.Unmarshal(vPayload, &payload)
 			if err != nil {
@@ -333,7 +356,11 @@ func secsipidxCLISign() int {
 		if cliops.verbosity > 0 {
 			fmt.Printf("Signing using the structures build from parameter values\n")
 		}
-		prvkey, _ := ioutil.ReadFile(cliops.fprvkey)
+		prvkey, err := readCLIFile(cliops.fprvkey, "private key")
+		if err != nil {
+			fmt.Printf("%v\n", err)
+			return -1
+		}
 		var ecdsaPrvKey *ecdsa.PrivateKey
 
 		if ecdsaPrvKey, _, err = secsipid.SJWTParseECPrivateKeyFromPEM(prvkey); err != nil {
@@ -358,7 +385,11 @@ func secsipidxCLICheck() int {
 	var err error
 
 	if len(cliops.fidentity) > 0 {
-		vIdentity, _ := ioutil.ReadFile(cliops.fidentity)
+		vIdentity, err := readCLIFile(cliops.fidentity, "identity")
+		if err != nil {
+			fmt.Printf("%v\n", err)
+			return -1
+		}
 		sIdentity = string(vIdentity)
 	} else if len(cliops.identity) > 0 {
 		sIdentity = cliops.identity
