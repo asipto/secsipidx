@@ -11,7 +11,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -627,7 +627,7 @@ func SJWTSetURLCachedContent(urlVal string, data []byte) error {
 func (o *SJWTLibOptions) setURLCachedContent(urlVal string, data []byte) error {
 	filePath := o.getURLCacheFilePath(urlVal)
 
-	return ioutil.WriteFile(filePath, data, 0640)
+	return os.WriteFile(filePath, data, 0640)
 }
 
 // SJWTGetURLContent --
@@ -663,7 +663,7 @@ func (o *SJWTLibOptions) getURLContent(urlVal string, timeoutVal int) ([]byte, i
 		return nil, SJWTRetErrHTTPStatusCode, fmt.Errorf("http status error: %v", resp.StatusCode)
 	}
 
-	data, err := ioutil.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, SJWTRetErrHTTPReadBody, fmt.Errorf("read http body failure: %v", err)
 	}
