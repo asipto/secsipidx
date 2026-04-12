@@ -111,6 +111,29 @@ type SJWTLibOptions struct {
 	x5u          string
 }
 
+// SJWTOptions - configuration for signer and verifier instances without relying
+// on process-wide mutable state.
+type SJWTOptions struct {
+	CacheDirPath string
+	CacheExpire  int
+	CertCAFile   string
+	CertCAInter  string
+	CertCRLFile  string
+	CertVerify   int
+	AttrsVerify  int
+	X5U          string
+}
+
+// SJWTVerifier verifies identities using instance-local options.
+type SJWTVerifier struct {
+	options SJWTLibOptions
+}
+
+// SJWTSigner builds identities using instance-local options.
+type SJWTSigner struct {
+	options SJWTLibOptions
+}
+
 const (
 	CertVerifyOptTime     = (1 << 0)
 	CertVerifyOptSysCA    = (1 << 1)
@@ -129,6 +152,100 @@ var globalLibOptions = SJWTLibOptions{
 	certVerify:   0,
 	attrsVerify:  1,
 	x5u:          "https://127.0.0.1/cert.pem",
+}
+
+func defaultSJWTLibOptions() SJWTLibOptions {
+	return SJWTLibOptions{
+		cacheDirPath: globalLibOptions.cacheDirPath,
+		cacheExpire:  globalLibOptions.cacheExpire,
+		certCAFile:   globalLibOptions.certCAFile,
+		certCAInter:  globalLibOptions.certCAInter,
+		certCRLFile:  globalLibOptions.certCRLFile,
+		certVerify:   globalLibOptions.certVerify,
+		attrsVerify:  globalLibOptions.attrsVerify,
+		x5u:          globalLibOptions.x5u,
+	}
+}
+
+func (o SJWTOptions) toLibOptions() SJWTLibOptions {
+	libOptions := defaultSJWTLibOptions()
+
+	if len(o.CacheDirPath) > 0 {
+		libOptions.cacheDirPath = o.CacheDirPath
+	}
+	if o.CacheExpire != 0 {
+		libOptions.cacheExpire = o.CacheExpire
+	}
+	if len(o.CertCAFile) > 0 {
+		libOptions.certCAFile = o.CertCAFile
+	}
+	if len(o.CertCAInter) > 0 {
+		libOptions.certCAInter = o.CertCAInter
+	}
+	if len(o.CertCRLFile) > 0 {
+		libOptions.certCRLFile = o.CertCRLFile
+	}
+	libOptions.certVerify = o.CertVerify
+	libOptions.attrsVerify = o.AttrsVerify
+	if len(o.X5U) > 0 {
+		libOptions.x5u = o.X5U
+	}
+
+	return libOptions
+}
+
+// DefaultSJWTOptions returns the current process-wide defaults as an explicit config.
+func DefaultSJWTOptions() SJWTOptions {
+	return SJWTOptions{
+		CacheDirPath: globalLibOptions.cacheDirPath,
+		CacheExpire:  globalLibOptions.cacheExpire,
+		CertCAFile:   globalLibOptions.certCAFile,
+		CertCAInter:  globalLibOptions.certCAInter,
+		CertCRLFile:  globalLibOptions.certCRLFile,
+		CertVerify:   globalLibOptions.certVerify,
+		AttrsVerify:  globalLibOptions.attrsVerify,
+		X5U:          globalLibOptions.x5u,
+	}
+}
+
+// NewSJWTVerifier builds a verifier with explicit options instead of global state.
+func NewSJWTVerifier(options SJWTOptions) *SJWTVerifier {
+	return &SJWTVerifier{options: options.toLibOptions()}
+}
+
+// NewSJWTSigner builds a signer with explicit options instead of global state.
+func NewSJWTSigner(options SJWTOptions) *SJWTSigner {
+	return &SJWTSigner{options: options.toLibOptions()}
+}
+
+// CheckFullIdentity verifies a full Identity header with instance-local options.
+func (v *SJWTVerifier) CheckFullIdentity(identityVal string, expireVal int, pubkeyPath string,
+	timeoutVal int) (int, error) {
+	return v.options.checkFullIdentity(identityVal, expireVal, pubkeyPath, timeoutVal)
+}
+
+// CheckFullIdentityURL verifies a full Identity header using the x5u/info URL.
+func (v *SJWTVerifier) CheckFullIdentityURL(identityVal string, expireVal int,
+	timeoutVal int) (int, error) {
+	return v.options.checkFullIdentityURL(identityVal, expireVal, timeoutVal)
+}
+
+// CheckFullIdentityPubKey verifies a full Identity header against the provided public key data.
+func (v *SJWTVerifier) CheckFullIdentityPubKey(identityVal string, expireVal int,
+	pubkeyVal string) (int, error) {
+	return v.options.checkFullIdentityPubKey(identityVal, expireVal, pubkeyVal)
+}
+
+// GetIdentity signs an Identity header using a private key path and instance-local defaults.
+func (s *SJWTSigner) GetIdentity(origTN string, destTN string, attestVal string, origID string,
+	x5uVal string, prvkeyPath string) (string, int, error) {
+	return s.options.getIdentity(origTN, destTN, attestVal, origID, x5uVal, prvkeyPath)
+}
+
+// GetIdentityPrvKey signs an Identity header using private key bytes and instance-local defaults.
+func (s *SJWTSigner) GetIdentityPrvKey(origTN string, destTN string, attestVal string,
+	origID string, x5uVal string, prvkeyData []byte) (string, int, error) {
+	return s.options.getIdentityPrvKey(origTN, destTN, attestVal, origID, x5uVal, prvkeyData)
 }
 
 var (
@@ -224,17 +341,25 @@ func SJWTRemoveWhiteSpaces(s string) string {
 
 // SJWTRemoveWhiteSpaces --
 func SJWTGetURLCacheFilePath(urlVal string) string {
+	return globalLibOptions.getURLCacheFilePath(urlVal)
+}
+
+func (o *SJWTLibOptions) getURLCacheFilePath(urlVal string) string {
 	filePath := strings.Replace(urlVal, "://", "_", -1)
 	filePath = strings.Replace(filePath, "/", "_", -1)
-	if len(globalLibOptions.cacheDirPath) > 0 {
-		filePath = globalLibOptions.cacheDirPath + "/" + filePath
+	if len(o.cacheDirPath) > 0 {
+		filePath = o.cacheDirPath + "/" + filePath
 	}
 	return filePath
 }
 
 // SJWTPubKeyVerify -
 func SJWTPubKeyVerify(pubKey []byte) (int, error) {
-	if globalLibOptions.certVerify == 0 {
+	return globalLibOptions.pubKeyVerify(pubKey)
+}
+
+func (o *SJWTLibOptions) pubKeyVerify(pubKey []byte) (int, error) {
+	if o.certVerify == 0 {
 		return SJWTRetOK, nil
 	}
 
@@ -275,7 +400,7 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 		return SJWTRetErrCertInvalidFormat, errors.New("failed to parse certificate PEM")
 	}
 
-	if (globalLibOptions.certVerify & (CertVerifyOptTime | CertVerifyOptTimeOnly)) != 0 {
+	if (o.certVerify & (CertVerifyOptTime | CertVerifyOptTimeOnly)) != 0 {
 		if !time.Now().Before(certVal.NotAfter) {
 			return SJWTRetErrCertExpired, errors.New("certificate expired")
 		} else if !time.Now().After(certVal.NotBefore) {
@@ -283,21 +408,21 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 		}
 	}
 
-	if (globalLibOptions.certVerify & CertVerifyOptTimeOnly) != 0 {
+	if (o.certVerify & CertVerifyOptTimeOnly) != 0 {
 		return SJWTRetOK, nil
 	}
 
 	rootCAs = nil
 	interCAs = nil
-	if (globalLibOptions.certVerify & CertVerifyOptSysCA) != 0 {
+	if (o.certVerify & CertVerifyOptSysCA) != 0 {
 		// Get the SystemCertPool
 		rootCAs, err = SystemCertPool()
 		if rootCAs == nil {
 			return SJWTRetErrCertProcessing, err
 		}
 	}
-	if (globalLibOptions.certVerify & CertVerifyOptCustCA) != 0 {
-		if len(globalLibOptions.certCAFile) <= 0 {
+	if (o.certVerify & CertVerifyOptCustCA) != 0 {
+		if len(o.certCAFile) <= 0 {
 			return SJWTRetErrCertNoCAFile, errors.New("no custom CA file")
 		}
 
@@ -309,7 +434,7 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 		}
 		var certsCA []byte
 		// Read in the cert file
-		certsCA, err = os.ReadFile(globalLibOptions.certCAFile)
+		certsCA, err = os.ReadFile(o.certCAFile)
 		if err != nil {
 			return SJWTRetErrCertReadCAFile, errors.New("failed to read CA file")
 		}
@@ -319,8 +444,8 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 			return SJWTRetErrCertProcessing, errors.New("failed to append CA file")
 		}
 	}
-	if (globalLibOptions.certVerify & CertVerifyOptInterCA) != 0 {
-		if len(globalLibOptions.certCAInter) <= 0 {
+	if (o.certVerify & CertVerifyOptInterCA) != 0 {
+		if len(o.certCAInter) <= 0 {
 			return SJWTRetErrCertNoCAInter, errors.New("no intermediate CA file")
 		}
 		interCAs = x509.NewCertPool()
@@ -329,7 +454,7 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 		}
 		var certsCA []byte
 		// Read in the cert file
-		certsCA, err = os.ReadFile(globalLibOptions.certCAInter)
+		certsCA, err = os.ReadFile(o.certCAInter)
 		if err != nil {
 			return SJWTRetErrCertReadCAInter, errors.New("failed to read intermediate CA file")
 		}
@@ -364,15 +489,15 @@ func SJWTPubKeyVerify(pubKey []byte) (int, error) {
 		return SJWTRetErrCertInvalid, err
 	}
 
-	if (globalLibOptions.certVerify & CertVerifyOptCRL) != 0 {
-		if len(globalLibOptions.certCRLFile) <= 0 {
+	if (o.certVerify & CertVerifyOptCRL) != 0 {
+		if len(o.certCRLFile) <= 0 {
 			return SJWTRetErrCertNoCRLFile, errors.New("no CRL file")
 		}
 		var rootCRL *pkix.CertificateList
 		rootCRL = nil
 		var certsCRLData []byte
 		// Read in the cert file
-		certsCRLData, err = os.ReadFile(globalLibOptions.certCRLFile)
+		certsCRLData, err = os.ReadFile(o.certCRLFile)
 		if err != nil {
 			return SJWTRetErrCertReadCRLFile, errors.New("failed to read CRL file")
 		}
@@ -476,14 +601,18 @@ func SJWTBase64DecodeBytes(seg string) ([]byte, error) {
 
 // SJWTGetURLCachedContent --
 func SJWTGetURLCachedContent(urlVal string) ([]byte, error) {
-	filePath := SJWTGetURLCacheFilePath(urlVal)
+	return globalLibOptions.getURLCachedContent(urlVal)
+}
+
+func (o *SJWTLibOptions) getURLCachedContent(urlVal string) ([]byte, error) {
+	filePath := o.getURLCacheFilePath(urlVal)
 
 	fileStat, err := os.Stat(filePath)
 	if err != nil {
 		return nil, err
 	}
 	tnow := time.Now()
-	if int(tnow.Sub(fileStat.ModTime()).Seconds()) > globalLibOptions.cacheExpire {
+	if int(tnow.Sub(fileStat.ModTime()).Seconds()) > o.cacheExpire {
 		os.Remove(filePath)
 		return nil, nil
 	}
@@ -492,13 +621,21 @@ func SJWTGetURLCachedContent(urlVal string) ([]byte, error) {
 
 // SJWTSetURLCachedContent --
 func SJWTSetURLCachedContent(urlVal string, data []byte) error {
-	filePath := SJWTGetURLCacheFilePath(urlVal)
+	return globalLibOptions.setURLCachedContent(urlVal, data)
+}
+
+func (o *SJWTLibOptions) setURLCachedContent(urlVal string, data []byte) error {
+	filePath := o.getURLCacheFilePath(urlVal)
 
 	return ioutil.WriteFile(filePath, data, 0640)
 }
 
 // SJWTGetURLContent --
 func SJWTGetURLContent(urlVal string, timeoutVal int) ([]byte, int, error) {
+	return globalLibOptions.getURLContent(urlVal, timeoutVal)
+}
+
+func (o *SJWTLibOptions) getURLContent(urlVal string, timeoutVal int) ([]byte, int, error) {
 	if len(urlVal) == 0 {
 		return nil, SJWTRetErrHTTPInvalidURL, errors.New("no URL value")
 	}
@@ -507,8 +644,8 @@ func SJWTGetURLContent(urlVal string, timeoutVal int) ([]byte, int, error) {
 		return nil, SJWTRetErrHTTPInvalidURL, errors.New("invalid URL value")
 	}
 
-	if len(globalLibOptions.cacheDirPath) > 0 {
-		cdata, cerr := SJWTGetURLCachedContent(urlVal)
+	if len(o.cacheDirPath) > 0 {
+		cdata, cerr := o.getURLCachedContent(urlVal)
 		if cdata != nil {
 			return cdata, SJWTRetOK, cerr
 		}
@@ -531,8 +668,8 @@ func SJWTGetURLContent(urlVal string, timeoutVal int) ([]byte, int, error) {
 		return nil, SJWTRetErrHTTPReadBody, fmt.Errorf("read http body failure: %v", err)
 	}
 
-	if len(globalLibOptions.cacheDirPath) > 0 {
-		SJWTSetURLCachedContent(urlVal, data)
+	if len(o.cacheDirPath) > 0 {
+		o.setURLCachedContent(urlVal, data)
 	}
 
 	return data, SJWTRetOK, nil
@@ -705,7 +842,8 @@ func SJWTEncodeText(headerJSON string, payloadJSON string, prvkeyPath string) (s
 }
 
 // SJWTEncodeTextWithPrvKey - encode header and payload to JWT with private key data
-func SJWTEncodeTextWithPrvKey(headerJSON string, payloadJSON string, prvkeyData string) (string, int, error) {
+func SJWTEncodeTextWithPrvKey(headerJSON string, payloadJSON string,
+	prvkeyData string) (string, int, error) {
 	var ret int
 	var err error
 	var signatureValue string
@@ -726,8 +864,11 @@ func SJWTEncodeTextWithPrvKey(headerJSON string, payloadJSON string, prvkeyData 
 
 // SJWTCheckAttributes - implements the verify of attributes
 func SJWTCheckAttributes(bToken string, paramInfo string) (int, error) {
+	return globalLibOptions.checkAttributes(bToken, paramInfo)
+}
 
-	if globalLibOptions.attrsVerify == 0 {
+func (o *SJWTLibOptions) checkAttributes(bToken string, paramInfo string) (int, error) {
+	if o.attrsVerify == 0 {
 		return SJWTRetOK, nil
 	}
 
@@ -754,7 +895,14 @@ func SJWTCheckAttributes(bToken string, paramInfo string) (int, error) {
 }
 
 // SJWTCheckIdentityPKMode - implements the verify of identity
-func SJWTCheckIdentityPKMode(identityVal string, expireVal int, pubkeyVal string, pubkeyMode int, timeoutVal int) (int, error) {
+func SJWTCheckIdentityPKMode(identityVal string, expireVal int, pubkeyVal string,
+	pubkeyMode int, timeoutVal int) (int, error) {
+	return globalLibOptions.checkIdentityPKMode(identityVal, expireVal, pubkeyVal,
+		pubkeyMode, timeoutVal)
+}
+
+func (o *SJWTLibOptions) checkIdentityPKMode(identityVal string, expireVal int,
+	pubkeyVal string, pubkeyMode int, timeoutVal int) (int, error) {
 	var err error
 	var ret int
 	var ecdsaPubKey *ecdsa.PublicKey
@@ -776,7 +924,7 @@ func SJWTCheckIdentityPKMode(identityVal string, expireVal int, pubkeyVal string
 		pubkey = []byte(pubkeyVal)
 	} else {
 		if strings.HasPrefix(pubkeyVal, "http://") || strings.HasPrefix(pubkeyVal, "https://") {
-			pubkey, ret, err = SJWTGetURLContent(pubkeyVal, timeoutVal)
+			pubkey, ret, err = o.getURLContent(pubkeyVal, timeoutVal)
 		} else if strings.HasPrefix(pubkeyVal, "file://") {
 			fileUrl, _ := url.Parse(pubkeyVal)
 			pubkey, err = os.ReadFile(fileUrl.Path)
@@ -790,7 +938,7 @@ func SJWTCheckIdentityPKMode(identityVal string, expireVal int, pubkeyVal string
 		}
 	}
 
-	ret, err = SJWTPubKeyVerify(pubkey)
+	ret, err = o.pubKeyVerify(pubkey)
 	if ret != SJWTRetOK {
 		return ret, err
 	}
@@ -807,8 +955,14 @@ func SJWTCheckIdentityPKMode(identityVal string, expireVal int, pubkeyVal string
 }
 
 // SJWTCheckIdentity - implements the verify of identity
-func SJWTCheckIdentity(identityVal string, expireVal int, pubkeyPath string, timeoutVal int) (int, error) {
-	return SJWTCheckIdentityPKMode(identityVal, expireVal, pubkeyPath, 0, timeoutVal)
+func SJWTCheckIdentity(identityVal string, expireVal int, pubkeyPath string,
+	timeoutVal int) (int, error) {
+	return globalLibOptions.checkIdentity(identityVal, expireVal, pubkeyPath, timeoutVal)
+}
+
+func (o *SJWTLibOptions) checkIdentity(identityVal string, expireVal int, pubkeyPath string,
+	timeoutVal int) (int, error) {
+	return o.checkIdentityPKMode(identityVal, expireVal, pubkeyPath, 0, timeoutVal)
 }
 
 // SJWTGetValidInfoAttr - return info param value of alg and ppt are valid
@@ -841,14 +995,20 @@ func SJWTGetValidInfoAttr(hdrtoken []string) (string, int, error) {
 }
 
 // SJWTCheckFullIdentity - implements the verify of identity
-func SJWTCheckFullIdentity(identityVal string, expireVal int, pubkeyPath string, timeoutVal int) (int, error) {
+func SJWTCheckFullIdentity(identityVal string, expireVal int, pubkeyPath string,
+	timeoutVal int) (int, error) {
+	return globalLibOptions.checkFullIdentity(identityVal, expireVal, pubkeyPath, timeoutVal)
+}
+
+func (o *SJWTLibOptions) checkFullIdentity(identityVal string, expireVal int,
+	pubkeyPath string, timeoutVal int) (int, error) {
 	if len(pubkeyPath) == 0 {
-		return SJWTCheckFullIdentityURL(identityVal, expireVal, timeoutVal)
+		return o.checkFullIdentityURL(identityVal, expireVal, timeoutVal)
 	}
 
 	hdrtoken := strings.Split(SJWTRemoveWhiteSpaces(identityVal), ";")
 
-	ret, err := SJWTCheckIdentity(hdrtoken[0], expireVal, pubkeyPath, timeoutVal)
+	ret, err := o.checkIdentity(hdrtoken[0], expireVal, pubkeyPath, timeoutVal)
 	if ret != 0 {
 		return ret, err
 	}
@@ -868,11 +1028,16 @@ func SJWTCheckFullIdentity(identityVal string, expireVal int, pubkeyPath string,
 	if len(btoken[0]) == 0 {
 		return SJWTRetErrJSONHdrParse, nil
 	}
-	return SJWTCheckAttributes(btoken[0], paramInfo)
+	return o.checkAttributes(btoken[0], paramInfo)
 }
 
 // SJWTCheckFullIdentityURL - implements the verify of identity using URL
 func SJWTCheckFullIdentityURL(identityVal string, expireVal int, timeoutVal int) (int, error) {
+	return globalLibOptions.checkFullIdentityURL(identityVal, expireVal, timeoutVal)
+}
+
+func (o *SJWTLibOptions) checkFullIdentityURL(identityVal string, expireVal int,
+	timeoutVal int) (int, error) {
 	var ecdsaPubKey *ecdsa.PublicKey
 	var ret int
 	var err error
@@ -890,13 +1055,13 @@ func SJWTCheckFullIdentityURL(identityVal string, expireVal int, timeoutVal int)
 		return ret, err
 	}
 
-	pubkey, ret, err = SJWTGetURLContent(paramInfo, timeoutVal)
+	pubkey, ret, err = o.getURLContent(paramInfo, timeoutVal)
 
 	if pubkey == nil {
 		return ret, err
 	}
 
-	ret, err = SJWTPubKeyVerify(pubkey)
+	ret, err = o.pubKeyVerify(pubkey)
 	if ret != SJWTRetOK {
 		return ret, err
 	}
@@ -926,14 +1091,19 @@ func SJWTCheckFullIdentityURL(identityVal string, expireVal int, timeoutVal int)
 		return ret, err
 	}
 
-	return SJWTCheckAttributes(btoken[0], paramInfo)
+	return o.checkAttributes(btoken[0], paramInfo)
 }
 
 // SJWTCheckFullIdentityPubKey - implements the verify of identity using public key
 func SJWTCheckFullIdentityPubKey(identityVal string, expireVal int, pubkeyVal string) (int, error) {
+	return globalLibOptions.checkFullIdentityPubKey(identityVal, expireVal, pubkeyVal)
+}
+
+func (o *SJWTLibOptions) checkFullIdentityPubKey(identityVal string, expireVal int,
+	pubkeyVal string) (int, error) {
 	hdrtoken := strings.Split(SJWTRemoveWhiteSpaces(identityVal), ";")
 
-	ret, err := SJWTCheckIdentityPKMode(hdrtoken[0], expireVal, pubkeyVal, 1, 5)
+	ret, err := o.checkIdentityPKMode(hdrtoken[0], expireVal, pubkeyVal, 1, 5)
 	if ret != 0 {
 		return ret, err
 	}
@@ -953,11 +1123,17 @@ func SJWTCheckFullIdentityPubKey(identityVal string, expireVal int, pubkeyVal st
 	if len(btoken[0]) == 0 {
 		return SJWTRetOK, nil
 	}
-	return SJWTCheckAttributes(btoken[0], paramInfo)
+	return o.checkAttributes(btoken[0], paramInfo)
 }
 
 // SJWTGetIdentityPrvKey --
-func SJWTGetIdentityPrvKey(origTN string, destTN string, attestVal string, origID string, x5uVal string, prvkeyData []byte) (string, int, error) {
+func SJWTGetIdentityPrvKey(origTN string, destTN string, attestVal string, origID string,
+	x5uVal string, prvkeyData []byte) (string, int, error) {
+	return globalLibOptions.getIdentityPrvKey(origTN, destTN, attestVal, origID, x5uVal, prvkeyData)
+}
+
+func (o *SJWTLibOptions) getIdentityPrvKey(origTN string, destTN string, attestVal string,
+	origID string, x5uVal string, prvkeyData []byte) (string, int, error) {
 	var ret int
 	var err error
 	var vOrigID string
@@ -966,7 +1142,7 @@ func SJWTGetIdentityPrvKey(origTN string, destTN string, attestVal string, origI
 		Alg: "ES256",
 		Ppt: "shaken",
 		Typ: "passport",
-		X5u: globalLibOptions.x5u,
+		X5u: o.x5u,
 	}
 	if len(x5uVal) > 0 {
 		header.X5u = x5uVal
@@ -1003,7 +1179,13 @@ func SJWTGetIdentityPrvKey(origTN string, destTN string, attestVal string, origI
 }
 
 // SJWTGetIdentity --
-func SJWTGetIdentity(origTN string, destTN string, attestVal string, origID string, x5uVal string, prvkeyPath string) (string, int, error) {
+func SJWTGetIdentity(origTN string, destTN string, attestVal string, origID string,
+	x5uVal string, prvkeyPath string) (string, int, error) {
+	return globalLibOptions.getIdentity(origTN, destTN, attestVal, origID, x5uVal, prvkeyPath)
+}
+
+func (o *SJWTLibOptions) getIdentity(origTN string, destTN string, attestVal string,
+	origID string, x5uVal string, prvkeyPath string) (string, int, error) {
 	var prvkey []byte
 	var err error
 
@@ -1011,5 +1193,5 @@ func SJWTGetIdentity(origTN string, destTN string, attestVal string, origID stri
 	if err != nil {
 		return "", SJWTRetErrFileRead, fmt.Errorf("Unable to read private key file: %v", err)
 	}
-	return SJWTGetIdentityPrvKey(origTN, destTN, attestVal, origID, x5uVal, prvkey)
+	return o.getIdentityPrvKey(origTN, destTN, attestVal, origID, x5uVal, prvkey)
 }
