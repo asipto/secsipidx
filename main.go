@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -17,6 +18,14 @@ import (
 )
 
 const secsipidxVersion = "1.3.2"
+
+const (
+	maxHTTPRequestBodyBytes = 1 << 20
+	httpReadHeaderTimeout   = 5 * time.Second
+	httpReadTimeout         = 10 * time.Second
+	httpWriteTimeout        = 10 * time.Second
+	httpIdleTimeout         = 30 * time.Second
+)
 
 // CLIOptions - structure for command line options
 type CLIOptions struct {
@@ -362,16 +371,33 @@ func secsipidxCLICheck() int {
 	return ret
 }
 
+func readHTTPRequestBody(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxHTTPRequestBodyBytes)
+	defer r.Body.Close()
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		if _, ok := err.(*http.MaxBytesError); ok {
+			http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+			return nil, false
+		}
+		http.Error(w, "cannot read body", http.StatusBadRequest)
+		return nil, false
+	}
+
+	return body, true
+}
+
 func httpHandleV1Check(w http.ResponseWriter, r *http.Request) {
 	var ret int
 
 	fmt.Printf("incoming request for identity check ...\n")
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		fmt.Printf("error reading body: %v", err)
-		http.Error(w, "cannot read body", http.StatusBadRequest)
+	body, ok := readHTTPRequestBody(w, r)
+	if !ok {
 		return
 	}
+
+	var err error
 	ret, err = secsipid.SJWTCheckFullIdentity(string(body), cliops.expire, cliops.fpubkey, cliops.timeout)
 
 	if err != nil {
@@ -385,13 +411,12 @@ func httpHandleV1Check(w http.ResponseWriter, r *http.Request) {
 
 func httpHandleV1SignCSV(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("incoming request for building identity ...\n")
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		fmt.Printf("error reading body: %v\n", err)
-		http.Error(w, "cannot read body", http.StatusBadRequest)
+	body, ok := readHTTPRequestBody(w, r)
+	if !ok {
 		return
 	}
 
+	var err error
 	token := strings.Split(strings.TrimSpace(string(body)), ",")
 	if len(token) < 5 {
 		fmt.Printf("too few tokens in input body: %d\n", len(token))
@@ -411,7 +436,18 @@ func httpHandleV1SignCSV(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func startHTTPServices() chan error {
+func buildHTTPHandler() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v1/check", httpHandleV1Check)
+	mux.HandleFunc("/v1/sign-csv", httpHandleV1SignCSV)
+	if len(cliops.httpdir) > 0 {
+		fmt.Printf("serving files over http from directory: %s\n", cliops.httpdir)
+		mux.Handle("/v1/pub/", http.StripPrefix("/v1/pub/", http.FileServer(http.Dir(cliops.httpdir))))
+	}
+	return mux
+}
+
+func startHTTPServices(handler http.Handler) chan error {
 
 	errchan := make(chan error)
 
@@ -420,7 +456,15 @@ func startHTTPServices() chan error {
 		go func() {
 			log.Printf("starting HTTP service on: %s ...", cliops.httpsrv)
 
-			if err := http.ListenAndServe(cliops.httpsrv, nil); err != nil {
+			server := &http.Server{
+				Addr:              cliops.httpsrv,
+				Handler:           handler,
+				ReadHeaderTimeout: httpReadHeaderTimeout,
+				ReadTimeout:       httpReadTimeout,
+				WriteTimeout:      httpWriteTimeout,
+				IdleTimeout:       httpIdleTimeout,
+			}
+			if err := server.ListenAndServe(); err != nil {
 				errchan <- err
 			}
 
@@ -431,7 +475,15 @@ func startHTTPServices() chan error {
 	if len(cliops.httpssrv) > 0 && len(cliops.httpspubkey) > 0 && len(cliops.httpsprvkey) > 0 {
 		go func() {
 			log.Printf("Starting HTTPS service on: %s ...", cliops.httpssrv)
-			if err := http.ListenAndServeTLS(cliops.httpssrv, cliops.httpspubkey, cliops.httpsprvkey, nil); err != nil {
+			server := &http.Server{
+				Addr:              cliops.httpssrv,
+				Handler:           handler,
+				ReadHeaderTimeout: httpReadHeaderTimeout,
+				ReadTimeout:       httpReadTimeout,
+				WriteTimeout:      httpWriteTimeout,
+				IdleTimeout:       httpIdleTimeout,
+			}
+			if err := server.ListenAndServeTLS(cliops.httpspubkey, cliops.httpsprvkey); err != nil {
 				errchan <- err
 			}
 		}()
@@ -476,15 +528,9 @@ func main() {
 	}
 
 	if (len(cliops.httpsrv) > 0) || (len(cliops.httpssrv) > 0 && len(cliops.httpspubkey) > 0 && len(cliops.httpsprvkey) > 0) {
-		http.HandleFunc("/v1/check", httpHandleV1Check)
-		http.HandleFunc("/v1/sign-csv", httpHandleV1SignCSV)
-		if len(cliops.httpdir) > 0 {
-			fmt.Printf("serving files over http from directory: %s\n", cliops.httpdir)
-			http.Handle("/v1/pub/", http.StripPrefix("/v1/pub/", http.FileServer(http.Dir(cliops.httpdir))))
-		}
 		fmt.Printf("starting http services ...\n")
 
-		errchan := startHTTPServices()
+		errchan := startHTTPServices(buildHTTPHandler())
 		select {
 		case err := <-errchan:
 			log.Printf("unable to start http services due to (error: %v)", err)
