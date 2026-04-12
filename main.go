@@ -527,6 +527,13 @@ func startHTTPServices(handler http.Handler) chan error {
 	return errchan
 }
 
+func httpServiceExitCode(err error) int {
+	if err == nil || err == http.ErrServerClosed {
+		return 0
+	}
+	return 1
+}
+
 func main() {
 	var ret int
 
@@ -534,12 +541,12 @@ func main() {
 
 	if cliops.version {
 		fmt.Printf("%s v%s\n", filepath.Base(os.Args[0]), secsipidxVersion)
-		os.Exit(1)
+		os.Exit(0)
 	}
 
 	if cliops.ltest {
 		localTest()
-		os.Exit(1)
+		os.Exit(0)
 	}
 
 	if len(cliops.cachedir) > 0 {
@@ -569,8 +576,8 @@ func main() {
 		select {
 		case err := <-errchan:
 			log.Printf("unable to start http services due to (error: %v)", err)
+			os.Exit(httpServiceExitCode(err))
 		}
-		os.Exit(1)
 	}
 
 	ret = 0
