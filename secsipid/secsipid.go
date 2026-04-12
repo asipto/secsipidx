@@ -196,6 +196,9 @@ func SJWTLibOptGetN(optname string) int {
 // SJWTLibOptSetV --
 func SJWTLibOptSetV(optnameval string) int {
 	optArray := strings.SplitN(optnameval, "=", 2)
+	if len(optArray) != 2 || len(optArray[0]) == 0 {
+		return SJWTRetErr
+	}
 	optName := optArray[0]
 	optVal := optArray[1]
 	switch optName {
