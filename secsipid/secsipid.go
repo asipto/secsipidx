@@ -4,9 +4,11 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -16,6 +18,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -101,27 +104,29 @@ type SJWTPayload struct {
 }
 
 type SJWTLibOptions struct {
-	cacheDirPath string
-	cacheExpire  int
-	certCAFile   string
-	certCAInter  string
-	certCRLFile  string
-	certVerify   int
-	attrsVerify  int
-	x5u          string
+	cacheDirPath  string
+	cacheExpire   int
+	cacheNameMode string
+	certCAFile    string
+	certCAInter   string
+	certCRLFile   string
+	certVerify    int
+	attrsVerify   int
+	x5u           string
 }
 
 // SJWTOptions - configuration for signer and verifier instances without relying
 // on process-wide mutable state.
 type SJWTOptions struct {
-	CacheDirPath string
-	CacheExpire  int
-	CertCAFile   string
-	CertCAInter  string
-	CertCRLFile  string
-	CertVerify   int
-	AttrsVerify  int
-	X5U          string
+	CacheDirPath  string
+	CacheExpire   int
+	CacheNameMode string
+	CertCAFile    string
+	CertCAInter   string
+	CertCRLFile   string
+	CertVerify    int
+	AttrsVerify   int
+	X5U           string
 }
 
 // SJWTVerifier verifies identities using instance-local options.
@@ -144,26 +149,28 @@ const (
 )
 
 var globalLibOptions = SJWTLibOptions{
-	cacheDirPath: "",
-	cacheExpire:  3600,
-	certCAFile:   "",
-	certCAInter:  "",
-	certCRLFile:  "",
-	certVerify:   0,
-	attrsVerify:  1,
-	x5u:          "https://127.0.0.1/cert.pem",
+	cacheDirPath:  "",
+	cacheExpire:   3600,
+	cacheNameMode: "plain",
+	certCAFile:    "",
+	certCAInter:   "",
+	certCRLFile:   "",
+	certVerify:    0,
+	attrsVerify:   1,
+	x5u:           "https://127.0.0.1/cert.pem",
 }
 
 func defaultSJWTLibOptions() SJWTLibOptions {
 	return SJWTLibOptions{
-		cacheDirPath: globalLibOptions.cacheDirPath,
-		cacheExpire:  globalLibOptions.cacheExpire,
-		certCAFile:   globalLibOptions.certCAFile,
-		certCAInter:  globalLibOptions.certCAInter,
-		certCRLFile:  globalLibOptions.certCRLFile,
-		certVerify:   globalLibOptions.certVerify,
-		attrsVerify:  globalLibOptions.attrsVerify,
-		x5u:          globalLibOptions.x5u,
+		cacheDirPath:  globalLibOptions.cacheDirPath,
+		cacheExpire:   globalLibOptions.cacheExpire,
+		cacheNameMode: globalLibOptions.cacheNameMode,
+		certCAFile:    globalLibOptions.certCAFile,
+		certCAInter:   globalLibOptions.certCAInter,
+		certCRLFile:   globalLibOptions.certCRLFile,
+		certVerify:    globalLibOptions.certVerify,
+		attrsVerify:   globalLibOptions.attrsVerify,
+		x5u:           globalLibOptions.x5u,
 	}
 }
 
@@ -175,6 +182,9 @@ func (o SJWTOptions) toLibOptions() SJWTLibOptions {
 	}
 	if o.CacheExpire != 0 {
 		libOptions.cacheExpire = o.CacheExpire
+	}
+	if len(o.CacheNameMode) > 0 {
+		libOptions.cacheNameMode = o.CacheNameMode
 	}
 	if len(o.CertCAFile) > 0 {
 		libOptions.certCAFile = o.CertCAFile
@@ -197,14 +207,15 @@ func (o SJWTOptions) toLibOptions() SJWTLibOptions {
 // DefaultSJWTOptions returns the current process-wide defaults as an explicit config.
 func DefaultSJWTOptions() SJWTOptions {
 	return SJWTOptions{
-		CacheDirPath: globalLibOptions.cacheDirPath,
-		CacheExpire:  globalLibOptions.cacheExpire,
-		CertCAFile:   globalLibOptions.certCAFile,
-		CertCAInter:  globalLibOptions.certCAInter,
-		CertCRLFile:  globalLibOptions.certCRLFile,
-		CertVerify:   globalLibOptions.certVerify,
-		AttrsVerify:  globalLibOptions.attrsVerify,
-		X5U:          globalLibOptions.x5u,
+		CacheDirPath:  globalLibOptions.cacheDirPath,
+		CacheExpire:   globalLibOptions.cacheExpire,
+		CacheNameMode: globalLibOptions.cacheNameMode,
+		CertCAFile:    globalLibOptions.certCAFile,
+		CertCAInter:   globalLibOptions.certCAInter,
+		CertCRLFile:   globalLibOptions.certCRLFile,
+		CertVerify:    globalLibOptions.certVerify,
+		AttrsVerify:   globalLibOptions.attrsVerify,
+		X5U:           globalLibOptions.x5u,
 	}
 }
 
@@ -265,6 +276,12 @@ func SJWTLibOptSetS(optname string, optval string) int {
 	case "CacheDirPath":
 		globalLibOptions.cacheDirPath = optval
 		return SJWTRetOK
+	case "CacheNameMode":
+		if optval != "plain" && optval != "sha256" {
+			return SJWTRetErr
+		}
+		globalLibOptions.cacheNameMode = optval
+		return SJWTRetOK
 	case "CertCAFile":
 		globalLibOptions.certCAFile = optval
 		return SJWTRetOK
@@ -322,7 +339,7 @@ func SJWTLibOptSetV(optnameval string) int {
 	case "CacheExpires", "CertVerify":
 		intVal, _ := strconv.Atoi(optVal)
 		return SJWTLibOptSetN(optName, intVal)
-	case "CacheDirPath", "CertCAFile", "CertCAInter", "CertCRLFile":
+	case "CacheDirPath", "CacheNameMode", "CertCAFile", "CertCAInter", "CertCRLFile":
 		return SJWTLibOptSetS(optName, optVal)
 	}
 	return SJWTRetErr
@@ -345,10 +362,17 @@ func SJWTGetURLCacheFilePath(urlVal string) string {
 }
 
 func (o *SJWTLibOptions) getURLCacheFilePath(urlVal string) string {
-	filePath := strings.Replace(urlVal, "://", "_", -1)
-	filePath = strings.Replace(filePath, "/", "_", -1)
+	filePath := ""
+	switch o.cacheNameMode {
+	case "sha256":
+		hashVal := sha256.Sum256([]byte(urlVal))
+		filePath = "url_" + hex.EncodeToString(hashVal[:])
+	default:
+		filePath = strings.Replace(urlVal, "://", "_", -1)
+		filePath = strings.Replace(filePath, "/", "_", -1)
+	}
 	if len(o.cacheDirPath) > 0 {
-		filePath = o.cacheDirPath + "/" + filePath
+		filePath = filepath.Join(o.cacheDirPath, filePath)
 	}
 	return filePath
 }
@@ -626,8 +650,32 @@ func SJWTSetURLCachedContent(urlVal string, data []byte) error {
 
 func (o *SJWTLibOptions) setURLCachedContent(urlVal string, data []byte) error {
 	filePath := o.getURLCacheFilePath(urlVal)
+	cacheDir := filepath.Dir(filePath)
 
-	return os.WriteFile(filePath, data, 0640)
+	if err := os.MkdirAll(cacheDir, 0750); err != nil {
+		return err
+	}
+
+	tempFile, err := os.CreateTemp(cacheDir, ".secsipid-cache-*")
+	if err != nil {
+		return err
+	}
+	tempPath := tempFile.Name()
+	defer os.Remove(tempPath)
+
+	if _, err = tempFile.Write(data); err != nil {
+		tempFile.Close()
+		return err
+	}
+	if err = tempFile.Chmod(0640); err != nil {
+		tempFile.Close()
+		return err
+	}
+	if err = tempFile.Close(); err != nil {
+		return err
+	}
+
+	return os.Rename(tempPath, filePath)
 }
 
 // SJWTGetURLContent --
