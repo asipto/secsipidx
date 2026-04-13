@@ -2,10 +2,13 @@ package secsipid_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -25,6 +28,7 @@ type GetURLValueTest struct {
 func TestGetURLContent(t *testing.T) {
 	os.Remove("http_example.com_foo")
 	os.Remove("http_localhost:5555_foo")
+	secsipid.SJWTLibOptSetS("CacheNameMode", "plain")
 
 	tcpDialErrMsg := getTcpDialErrMsg()
 
@@ -254,6 +258,48 @@ func TestGetURLContent(t *testing.T) {
 
 		os.Remove("http_localhost:5555_foo")
 	})
+}
+
+func TestURLCacheFilePathModes(t *testing.T) {
+	expect := expectate.Expect(t)
+	workDir := t.TempDir()
+	urlVal := "http://example.com/foo"
+
+	secsipid.SetURLFileCacheOptions(workDir, 3600)
+	defer secsipid.SetURLFileCacheOptions("", 0)
+	defer secsipid.SJWTLibOptSetS("CacheNameMode", "plain")
+
+	secsipid.SJWTLibOptSetS("CacheNameMode", "plain")
+	expect(secsipid.SJWTGetURLCacheFilePath(urlVal)).ToBe(filepath.Join(workDir, "http_example.com_foo"))
+
+	secsipid.SJWTLibOptSetS("CacheNameMode", "sha256")
+	hashVal := sha256.Sum256([]byte(urlVal))
+	expect(secsipid.SJWTGetURLCacheFilePath(urlVal)).ToBe(filepath.Join(workDir, "url_"+hex.EncodeToString(hashVal[:])))
+}
+
+func TestGetURLContentCreatesCacheDirectoryAndWritesHashedFile(t *testing.T) {
+	expect := expectate.Expect(t)
+	cacheDir := filepath.Join(t.TempDir(), "nested", "cache")
+
+	secsipid.SetURLFileCacheOptions(cacheDir, 3600)
+	secsipid.SJWTLibOptSetS("CacheNameMode", "sha256")
+	defer secsipid.SetURLFileCacheOptions("", 0)
+	defer secsipid.SJWTLibOptSetS("CacheNameMode", "plain")
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Hello from the server!"))
+	})
+	stopTestServer := startTestServer(handler)
+	defer stopTestServer()
+
+	content, errCode, err := secsipid.SJWTGetURLContent("http://localhost:5555/foo", 10)
+	expect(content).ToEqual([]byte("Hello from the server!"))
+	expect(errCode).ToBe(secsipid.SJWTRetOK)
+	expect(err).ToBe(error(nil))
+
+	cacheFilePath := secsipid.SJWTGetURLCacheFilePath("http://localhost:5555/foo")
+	_, statErr := os.Stat(cacheFilePath)
+	expect(statErr).ToBe(error(nil))
 }
 
 func startTestServer(handler http.Handler) (shutdown func()) {
