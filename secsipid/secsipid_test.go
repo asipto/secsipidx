@@ -750,6 +750,9 @@ func TestSJWTLibOptSetV(t *testing.T) {
 
 		expect(secsipid.SJWTLibOptSetV("CacheExpires=42")).ToBe(secsipid.SJWTRetOK)
 		expect(secsipid.SJWTLibOptGetN("CacheExpires")).ToBe(42)
+		expect(secsipid.SJWTLibOptSetV("DenyPrivateX5U=1")).ToBe(secsipid.SJWTRetOK)
+		expect(secsipid.SJWTLibOptGetN("DenyPrivateX5U")).ToBe(1)
+		expect(secsipid.SJWTLibOptSetN("DenyPrivateX5U", 0)).ToBe(secsipid.SJWTRetOK)
 	})
 
 	t.Run("sets string options from valid key value input", func(t *testing.T) {
@@ -1122,6 +1125,41 @@ func TestGetURLContentCreatesCacheDirectoryAndWritesHashedFile(t *testing.T) {
 	cacheFilePath := secsipid.SJWTGetURLCacheFilePath("http://localhost:5555/foo")
 	_, statErr := os.Stat(cacheFilePath)
 	expect(statErr).ToBe(error(nil))
+}
+
+func TestGetURLContentBlocksPrivateAddressesWhenEnabled(t *testing.T) {
+	secsipid.SetURLFileCacheOptions("", 0)
+	secsipid.SJWTLibOptSetN("DenyPrivateX5U", 1)
+	defer secsipid.SJWTLibOptSetN("DenyPrivateX5U", 0)
+
+	urls := []string{
+		"http://127.0.0.1:1/cert.pem",
+		"http://10.0.0.1/cert.pem",
+		"http://172.16.0.1/cert.pem",
+		"http://192.168.0.1/cert.pem",
+		"http://100.64.0.1/cert.pem",
+		"http://169.254.1.1/cert.pem",
+		"http://224.0.0.1/cert.pem",
+		"http://0.0.0.0/cert.pem",
+		"http://[::1]/cert.pem",
+		"http://[fc00::1]/cert.pem",
+		"http://[fe80::1]/cert.pem",
+	}
+
+	for _, urlVal := range urls {
+		t.Run(urlVal, func(t *testing.T) {
+			content, errCode, err := secsipid.SJWTGetURLContent(urlVal, 10)
+			if content != nil {
+				t.Fatalf("expected no content, got %q", content)
+			}
+			if errCode != secsipid.SJWTRetErrHTTPGet {
+				t.Fatalf("expected HTTP get error code, got %d", errCode)
+			}
+			if err == nil || !strings.Contains(err.Error(), "blocked non-public address") {
+				t.Fatalf("expected blocked private address error, got %v", err)
+			}
+		})
+	}
 }
 
 func startTestServer(handler http.Handler) (shutdown func()) {
