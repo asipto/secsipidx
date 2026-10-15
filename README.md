@@ -221,6 +221,9 @@ Certificate URL downloads allow private and local destinations by default. Use `
 to reject loopback, private, link-local, multicast, unspecified, and carrier-grade NAT destinations.
 Redirect destinations are checked as well when this restriction is enabled.
 
+Downloaded certificate bodies are limited to 1 MiB. Responses exceeding this limit are rejected
+and are not written to the certificate cache.
+
 The C library exports now:
 
 ```c
