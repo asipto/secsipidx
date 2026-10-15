@@ -28,85 +28,87 @@ const (
 
 // CLIOptions - structure for command line options
 type CLIOptions struct {
-	httpsrv       string
-	httpssrv      string
-	httpspubkey   string
-	httpsprvkey   string
-	httpdir       string
-	fprvkey       string
-	fpubkey       string
-	header        string
-	fheader       string
-	payload       string
-	fpayload      string
-	identity      string
-	fidentity     string
-	alg           string
-	ppt           string
-	typ           string
-	x5u           string
-	attest        string
-	desttn        string
-	origtn        string
-	iat           int
-	origid        string
-	check         bool
-	sign          bool
-	signfull      bool
-	jsonparse     bool
-	expire        int
-	timeout       int
-	ltest         bool
-	version       bool
-	cachedir      string
-	cacheexpire   int
-	cachefilemode string
-	cafile        string
-	cainter       string
-	crlfile       string
-	certverify    int
-	verbosity     int
+	httpsrv        string
+	httpssrv       string
+	httpspubkey    string
+	httpsprvkey    string
+	httpdir        string
+	fprvkey        string
+	fpubkey        string
+	header         string
+	fheader        string
+	payload        string
+	fpayload       string
+	identity       string
+	fidentity      string
+	alg            string
+	ppt            string
+	typ            string
+	x5u            string
+	attest         string
+	desttn         string
+	origtn         string
+	iat            int
+	origid         string
+	check          bool
+	sign           bool
+	signfull       bool
+	jsonparse      bool
+	expire         int
+	timeout        int
+	ltest          bool
+	version        bool
+	cachedir       string
+	cacheexpire    int
+	cachefilemode  string
+	denyprivateX5U bool
+	cafile         string
+	cainter        string
+	crlfile        string
+	certverify     int
+	verbosity      int
 }
 
 var cliops = CLIOptions{
-	httpsrv:       "",
-	httpssrv:      "",
-	httpspubkey:   "",
-	httpsprvkey:   "",
-	httpdir:       "",
-	fprvkey:       "",
-	fpubkey:       "",
-	header:        "",
-	fheader:       "",
-	payload:       "",
-	fpayload:      "",
-	identity:      "",
-	fidentity:     "",
-	alg:           "ES256",
-	ppt:           "shaken",
-	typ:           "passport",
-	x5u:           "",
-	attest:        "C",
-	desttn:        "",
-	origtn:        "",
-	iat:           0,
-	origid:        "",
-	check:         false,
-	sign:          false,
-	signfull:      false,
-	jsonparse:     false,
-	expire:        0,
-	timeout:       3,
-	ltest:         false,
-	version:       false,
-	cachedir:      "",
-	cacheexpire:   3600,
-	cachefilemode: "plain",
-	cafile:        "",
-	cainter:       "",
-	crlfile:       "",
-	certverify:    0,
-	verbosity:     0,
+	httpsrv:        "",
+	httpssrv:       "",
+	httpspubkey:    "",
+	httpsprvkey:    "",
+	httpdir:        "",
+	fprvkey:        "",
+	fpubkey:        "",
+	header:         "",
+	fheader:        "",
+	payload:        "",
+	fpayload:       "",
+	identity:       "",
+	fidentity:      "",
+	alg:            "ES256",
+	ppt:            "shaken",
+	typ:            "passport",
+	x5u:            "",
+	attest:         "C",
+	desttn:         "",
+	origtn:         "",
+	iat:            0,
+	origid:         "",
+	check:          false,
+	sign:           false,
+	signfull:       false,
+	jsonparse:      false,
+	expire:         0,
+	timeout:        3,
+	ltest:          false,
+	version:        false,
+	cachedir:       "",
+	cacheexpire:    3600,
+	cachefilemode:  "plain",
+	denyprivateX5U: false,
+	cafile:         "",
+	cainter:        "",
+	crlfile:        "",
+	certverify:     0,
+	verbosity:      0,
 }
 
 func registerFlags(fs *flag.FlagSet, opts *CLIOptions) {
@@ -153,6 +155,7 @@ func registerFlags(fs *flag.FlagSet, opts *CLIOptions) {
 	fs.StringVar(&opts.cachedir, "cache-dir", opts.cachedir, "path to the directory with cached certificates (default: '')")
 	fs.IntVar(&opts.cacheexpire, "cache-expire", opts.cacheexpire, "duration of cached certificates (in seconds)")
 	fs.StringVar(&opts.cachefilemode, "cache-file-mode", opts.cachefilemode, "cache filename mode: plain or sha256")
+	fs.BoolVar(&opts.denyprivateX5U, "deny-private-x5u", opts.denyprivateX5U, "deny certificate URLs resolving to private or local addresses")
 	fs.StringVar(&opts.cafile, "ca-file", opts.cafile, "file with root CA certificates in pem format")
 	fs.StringVar(&opts.cainter, "ca-inter", opts.cainter, "file with intermediate CA certificates in pem format")
 	fs.StringVar(&opts.crlfile, "crl-file", opts.crlfile, "file with CRL in pem format")
@@ -560,6 +563,9 @@ func main() {
 			fmt.Printf("invalid cache file mode: %s\n", cliops.cachefilemode)
 			os.Exit(1)
 		}
+	}
+	if cliops.denyprivateX5U {
+		secsipid.SJWTLibOptSetN("DenyPrivateX5U", 1)
 	}
 
 	if len(cliops.cafile) > 0 {
