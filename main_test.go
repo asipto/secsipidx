@@ -63,6 +63,19 @@ func TestRegisterFlagsParsesSignFullFlagsIndependently(t *testing.T) {
 	})
 }
 
+func TestRegisterFlagsDeniesPrivateCertificateURLsExplicitly(t *testing.T) {
+	opts := cliops
+	fs := flag.NewFlagSet("test", flag.ContinueOnError)
+	registerFlags(fs, &opts)
+
+	if err := fs.Parse([]string{"-deny-private-x5u"}); err != nil {
+		t.Fatalf("parse flags: %v", err)
+	}
+	if !opts.denyprivateX5U {
+		t.Fatalf("expected deny-private-x5u to be true")
+	}
+}
+
 func TestCLICommandsFailOnMissingInputFiles(t *testing.T) {
 	t.Run("sign fails when header file is missing", func(t *testing.T) {
 		prev := cliops
