@@ -1,6 +1,7 @@
 package secsipid
 
 import (
+	"context"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/rand"
@@ -15,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -104,29 +106,31 @@ type SJWTPayload struct {
 }
 
 type SJWTLibOptions struct {
-	cacheDirPath  string
-	cacheExpire   int
-	cacheNameMode string
-	certCAFile    string
-	certCAInter   string
-	certCRLFile   string
-	certVerify    int
-	attrsVerify   int
-	x5u           string
+	cacheDirPath   string
+	cacheExpire    int
+	cacheNameMode  string
+	certCAFile     string
+	certCAInter    string
+	certCRLFile    string
+	certVerify     int
+	attrsVerify    int
+	denyPrivateX5U bool
+	x5u            string
 }
 
 // SJWTOptions - configuration for signer and verifier instances without relying
 // on process-wide mutable state.
 type SJWTOptions struct {
-	CacheDirPath  string
-	CacheExpire   int
-	CacheNameMode string
-	CertCAFile    string
-	CertCAInter   string
-	CertCRLFile   string
-	CertVerify    int
-	AttrsVerify   int
-	X5U           string
+	CacheDirPath   string
+	CacheExpire    int
+	CacheNameMode  string
+	CertCAFile     string
+	CertCAInter    string
+	CertCRLFile    string
+	CertVerify     int
+	AttrsVerify    int
+	DenyPrivateX5U bool
+	X5U            string
 }
 
 // SJWTVerifier verifies identities using instance-local options.
@@ -149,28 +153,30 @@ const (
 )
 
 var globalLibOptions = SJWTLibOptions{
-	cacheDirPath:  "",
-	cacheExpire:   3600,
-	cacheNameMode: "plain",
-	certCAFile:    "",
-	certCAInter:   "",
-	certCRLFile:   "",
-	certVerify:    0,
-	attrsVerify:   1,
-	x5u:           "https://127.0.0.1/cert.pem",
+	cacheDirPath:   "",
+	cacheExpire:    3600,
+	cacheNameMode:  "plain",
+	certCAFile:     "",
+	certCAInter:    "",
+	certCRLFile:    "",
+	certVerify:     0,
+	attrsVerify:    1,
+	denyPrivateX5U: false,
+	x5u:            "https://127.0.0.1/cert.pem",
 }
 
 func defaultSJWTLibOptions() SJWTLibOptions {
 	return SJWTLibOptions{
-		cacheDirPath:  globalLibOptions.cacheDirPath,
-		cacheExpire:   globalLibOptions.cacheExpire,
-		cacheNameMode: globalLibOptions.cacheNameMode,
-		certCAFile:    globalLibOptions.certCAFile,
-		certCAInter:   globalLibOptions.certCAInter,
-		certCRLFile:   globalLibOptions.certCRLFile,
-		certVerify:    globalLibOptions.certVerify,
-		attrsVerify:   globalLibOptions.attrsVerify,
-		x5u:           globalLibOptions.x5u,
+		cacheDirPath:   globalLibOptions.cacheDirPath,
+		cacheExpire:    globalLibOptions.cacheExpire,
+		cacheNameMode:  globalLibOptions.cacheNameMode,
+		certCAFile:     globalLibOptions.certCAFile,
+		certCAInter:    globalLibOptions.certCAInter,
+		certCRLFile:    globalLibOptions.certCRLFile,
+		certVerify:     globalLibOptions.certVerify,
+		attrsVerify:    globalLibOptions.attrsVerify,
+		denyPrivateX5U: globalLibOptions.denyPrivateX5U,
+		x5u:            globalLibOptions.x5u,
 	}
 }
 
@@ -197,6 +203,7 @@ func (o SJWTOptions) toLibOptions() SJWTLibOptions {
 	}
 	libOptions.certVerify = o.CertVerify
 	libOptions.attrsVerify = o.AttrsVerify
+	libOptions.denyPrivateX5U = o.DenyPrivateX5U
 	if len(o.X5U) > 0 {
 		libOptions.x5u = o.X5U
 	}
@@ -207,15 +214,16 @@ func (o SJWTOptions) toLibOptions() SJWTLibOptions {
 // DefaultSJWTOptions returns the current process-wide defaults as an explicit config.
 func DefaultSJWTOptions() SJWTOptions {
 	return SJWTOptions{
-		CacheDirPath:  globalLibOptions.cacheDirPath,
-		CacheExpire:   globalLibOptions.cacheExpire,
-		CacheNameMode: globalLibOptions.cacheNameMode,
-		CertCAFile:    globalLibOptions.certCAFile,
-		CertCAInter:   globalLibOptions.certCAInter,
-		CertCRLFile:   globalLibOptions.certCRLFile,
-		CertVerify:    globalLibOptions.certVerify,
-		AttrsVerify:   globalLibOptions.attrsVerify,
-		X5U:           globalLibOptions.x5u,
+		CacheDirPath:   globalLibOptions.cacheDirPath,
+		CacheExpire:    globalLibOptions.cacheExpire,
+		CacheNameMode:  globalLibOptions.cacheNameMode,
+		CertCAFile:     globalLibOptions.certCAFile,
+		CertCAInter:    globalLibOptions.certCAInter,
+		CertCRLFile:    globalLibOptions.certCRLFile,
+		CertVerify:     globalLibOptions.certVerify,
+		AttrsVerify:    globalLibOptions.attrsVerify,
+		DenyPrivateX5U: globalLibOptions.denyPrivateX5U,
+		X5U:            globalLibOptions.x5u,
 	}
 }
 
@@ -310,6 +318,9 @@ func SJWTLibOptSetN(optname string, optval int) int {
 	case "AttrsVerify":
 		globalLibOptions.attrsVerify = optval
 		return SJWTRetOK
+	case "DenyPrivateX5U":
+		globalLibOptions.denyPrivateX5U = optval != 0
+		return SJWTRetOK
 	}
 	return SJWTRetErr
 }
@@ -323,6 +334,11 @@ func SJWTLibOptGetN(optname string) int {
 		return globalLibOptions.certVerify
 	case "AttrsVerify":
 		return globalLibOptions.attrsVerify
+	case "DenyPrivateX5U":
+		if globalLibOptions.denyPrivateX5U {
+			return 1
+		}
+		return 0
 	}
 	return SJWTRetErr
 }
@@ -336,7 +352,7 @@ func SJWTLibOptSetV(optnameval string) int {
 	optName := optArray[0]
 	optVal := optArray[1]
 	switch optName {
-	case "CacheExpires", "CertVerify":
+	case "CacheExpires", "CertVerify", "DenyPrivateX5U":
 		intVal, _ := strconv.Atoi(optVal)
 		return SJWTLibOptSetN(optName, intVal)
 	case "CacheDirPath", "CacheNameMode", "CertCAFile", "CertCAInter", "CertCRLFile":
@@ -683,12 +699,71 @@ func SJWTGetURLContent(urlVal string, timeoutVal int) ([]byte, int, error) {
 	return globalLibOptions.getURLContent(urlVal, timeoutVal)
 }
 
+func validateRemoteURL(parsedURL *url.URL) error {
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return errors.New("invalid URL value")
+	}
+	if parsedURL.Hostname() == "" {
+		return errors.New("invalid URL value")
+	}
+	return nil
+}
+
+func isRestrictedRemoteIP(ip net.IP) bool {
+	if ip == nil || !ip.IsGlobalUnicast() || ip.IsLoopback() || ip.IsUnspecified() ||
+		ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsMulticast() {
+		return true
+	}
+
+	if ip4 := ip.To4(); ip4 != nil {
+		return ip4[0] == 10 ||
+			(ip4[0] == 172 && ip4[1] >= 16 && ip4[1] <= 31) ||
+			(ip4[0] == 192 && ip4[1] == 168) ||
+			(ip4[0] == 100 && ip4[1] >= 64 && ip4[1] <= 127)
+	}
+
+	ip16 := ip.To16()
+	return ip16 != nil && ip16[0]&0xfe == 0xfc
+}
+
+func dialPublicRemote(ctx context.Context, network string, address string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(address)
+	if err != nil {
+		return nil, err
+	}
+
+	addresses, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	if len(addresses) == 0 {
+		return nil, fmt.Errorf("no addresses found for %s", host)
+	}
+	for _, resolvedAddress := range addresses {
+		if isRestrictedRemoteIP(resolvedAddress.IP) {
+			return nil, fmt.Errorf("blocked non-public address %s for %s", resolvedAddress.IP, host)
+		}
+	}
+
+	dialer := net.Dialer{}
+	var lastErr error
+	for _, resolvedAddress := range addresses {
+		conn, dialErr := dialer.DialContext(ctx, network, net.JoinHostPort(resolvedAddress.IP.String(), port))
+		if dialErr == nil {
+			return conn, nil
+		}
+		lastErr = dialErr
+	}
+	return nil, lastErr
+}
+
 func (o *SJWTLibOptions) getURLContent(urlVal string, timeoutVal int) ([]byte, int, error) {
 	if len(urlVal) == 0 {
 		return nil, SJWTRetErrHTTPInvalidURL, errors.New("no URL value")
 	}
 
-	if !(strings.HasPrefix(urlVal, "http://") || strings.HasPrefix(urlVal, "https://")) {
+	parsedURL, err := url.Parse(urlVal)
+	if err != nil || validateRemoteURL(parsedURL) != nil {
 		return nil, SJWTRetErrHTTPInvalidURL, errors.New("invalid URL value")
 	}
 
@@ -698,10 +773,27 @@ func (o *SJWTLibOptions) getURLContent(urlVal string, timeoutVal int) ([]byte, i
 			return cdata, SJWTRetOK, cerr
 		}
 	}
-	httpClient := http.Client{
-		Timeout: time.Duration(timeoutVal) * time.Second,
+	transport := &http.Transport{}
+	if defaultTransport, ok := http.DefaultTransport.(*http.Transport); ok {
+		transport = defaultTransport.Clone()
 	}
-	resp, err := httpClient.Get(urlVal)
+	transport.Proxy = nil
+	if o.denyPrivateX5U {
+		transport.DialContext = dialPublicRemote
+	}
+	defer transport.CloseIdleConnections()
+
+	httpClient := http.Client{
+		Transport: transport,
+		Timeout:   time.Duration(timeoutVal) * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 10 {
+				return errors.New("stopped after 10 redirects")
+			}
+			return validateRemoteURL(req.URL)
+		},
+	}
+	resp, err := httpClient.Get(parsedURL.String())
 	if err != nil {
 		return nil, SJWTRetErrHTTPGet, fmt.Errorf("http get failure: %v", err)
 	}
