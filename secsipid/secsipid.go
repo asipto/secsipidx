@@ -78,6 +78,8 @@ const (
 	SJWTRetErrFileRead       = -451
 )
 
+const maxURLContentBytes = 1 << 20
+
 // SJWTHeader - header for JWT
 type SJWTHeader struct {
 	Alg string `json:"alg"`
@@ -803,9 +805,13 @@ func (o *SJWTLibOptions) getURLContent(urlVal string, timeoutVal int) ([]byte, i
 		return nil, SJWTRetErrHTTPStatusCode, fmt.Errorf("http status error: %v", resp.StatusCode)
 	}
 
-	data, err := io.ReadAll(resp.Body)
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxURLContentBytes+1))
 	if err != nil {
 		return nil, SJWTRetErrHTTPReadBody, fmt.Errorf("read http body failure: %v", err)
+	}
+	if len(data) > maxURLContentBytes {
+		return nil, SJWTRetErrHTTPReadBody,
+			fmt.Errorf("read http body failure: content exceeds %d byte limit", maxURLContentBytes)
 	}
 
 	if len(o.cacheDirPath) > 0 {
