@@ -217,6 +217,10 @@ There is support for a basic caching mechanism of the public keys in local files
 It can be activated by giving `-cache-dir /path/to/cachedir` cli parameter, how long the cached value is
 considered valid can be controlled with `-cache-expire`.
 
+Certificate URL downloads allow private and local destinations by default. Use `-deny-private-x5u`
+to reject loopback, private, link-local, multicast, unspecified, and carrier-grade NAT destinations.
+Redirect destinations are checked as well when this restriction is enabled.
+
 The C library exports now:
 
 ```c
@@ -272,6 +276,8 @@ or `SecSIPIDOptSetV()`:
   that are downloaded from peers
   * `CacheExpires` (int) - number of seconds after which cached certificates are
   invalidated
+  * `DenyPrivateX5U` (int) - set to `1` to reject certificate URLs resolving to
+  private or local addresses; the default is `0`
   * `CertVerify` (int) - the certification verification mode, see the section
   `Certificate Verification` above
   * `CertCAFile` (str) - the path with the custom root CA certificates
