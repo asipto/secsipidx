@@ -851,6 +851,8 @@ type GetURLValueTest struct {
 	expectedErrMsg  string
 }
 
+const testMaxURLContentBytes = 1 << 20
+
 func TestGetURLContent(t *testing.T) {
 	os.Remove("http_example.com_foo")
 	os.Remove("http_localhost:5555_foo")
@@ -983,6 +985,38 @@ func TestGetURLContent(t *testing.T) {
 			expectedContent: nil,
 			expectedErrCode: secsipid.SJWTRetErrHTTPReadBody,
 			expectedErrMsg:  "read http body failure: unexpected EOF",
+		})
+	})
+
+	t.Run("OK when response body is at the size limit", func(t *testing.T) {
+		responseBody := strings.Repeat("a", testMaxURLContentBytes)
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte(responseBody))
+		})
+		stopTestServer := startTestServer(handler)
+		defer stopTestServer()
+
+		runTest(t, GetURLValueTest{
+			urlVal:          "http://localhost:5555/foo",
+			timeoutVal:      10,
+			expectedContent: []byte(responseBody),
+			expectedErrCode: secsipid.SJWTRetOK,
+		})
+	})
+
+	t.Run("ErrHTTPReadBody when response body exceeds the size limit", func(t *testing.T) {
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte(strings.Repeat("a", testMaxURLContentBytes+1)))
+		})
+		stopTestServer := startTestServer(handler)
+		defer stopTestServer()
+
+		runTest(t, GetURLValueTest{
+			urlVal:          "http://localhost:5555/foo",
+			timeoutVal:      10,
+			expectedContent: nil,
+			expectedErrCode: secsipid.SJWTRetErrHTTPReadBody,
+			expectedErrMsg:  "read http body failure: content exceeds 1048576 byte limit",
 		})
 	})
 
