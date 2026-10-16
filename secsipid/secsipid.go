@@ -78,7 +78,7 @@ const (
 	SJWTRetErrFileRead       = -451
 )
 
-const maxURLContentBytes = 1 << 20
+const defaultMaxURLContentBytes = 1 << 20
 
 // SJWTHeader - header for JWT
 type SJWTHeader struct {
@@ -108,31 +108,33 @@ type SJWTPayload struct {
 }
 
 type SJWTLibOptions struct {
-	cacheDirPath   string
-	cacheExpire    int
-	cacheNameMode  string
-	certCAFile     string
-	certCAInter    string
-	certCRLFile    string
-	certVerify     int
-	attrsVerify    int
-	denyPrivateX5U bool
-	x5u            string
+	cacheDirPath       string
+	cacheExpire        int
+	cacheNameMode      string
+	certCAFile         string
+	certCAInter        string
+	certCRLFile        string
+	certVerify         int
+	attrsVerify        int
+	denyPrivateX5U     bool
+	maxURLContentBytes int
+	x5u                string
 }
 
 // SJWTOptions - configuration for signer and verifier instances without relying
 // on process-wide mutable state.
 type SJWTOptions struct {
-	CacheDirPath   string
-	CacheExpire    int
-	CacheNameMode  string
-	CertCAFile     string
-	CertCAInter    string
-	CertCRLFile    string
-	CertVerify     int
-	AttrsVerify    int
-	DenyPrivateX5U bool
-	X5U            string
+	CacheDirPath       string
+	CacheExpire        int
+	CacheNameMode      string
+	CertCAFile         string
+	CertCAInter        string
+	CertCRLFile        string
+	CertVerify         int
+	AttrsVerify        int
+	DenyPrivateX5U     bool
+	MaxURLContentBytes int
+	X5U                string
 }
 
 // SJWTVerifier verifies identities using instance-local options.
@@ -155,30 +157,32 @@ const (
 )
 
 var globalLibOptions = SJWTLibOptions{
-	cacheDirPath:   "",
-	cacheExpire:    3600,
-	cacheNameMode:  "plain",
-	certCAFile:     "",
-	certCAInter:    "",
-	certCRLFile:    "",
-	certVerify:     0,
-	attrsVerify:    1,
-	denyPrivateX5U: false,
-	x5u:            "https://127.0.0.1/cert.pem",
+	cacheDirPath:       "",
+	cacheExpire:        3600,
+	cacheNameMode:      "plain",
+	certCAFile:         "",
+	certCAInter:        "",
+	certCRLFile:        "",
+	certVerify:         0,
+	attrsVerify:        1,
+	denyPrivateX5U:     false,
+	maxURLContentBytes: defaultMaxURLContentBytes,
+	x5u:                "https://127.0.0.1/cert.pem",
 }
 
 func defaultSJWTLibOptions() SJWTLibOptions {
 	return SJWTLibOptions{
-		cacheDirPath:   globalLibOptions.cacheDirPath,
-		cacheExpire:    globalLibOptions.cacheExpire,
-		cacheNameMode:  globalLibOptions.cacheNameMode,
-		certCAFile:     globalLibOptions.certCAFile,
-		certCAInter:    globalLibOptions.certCAInter,
-		certCRLFile:    globalLibOptions.certCRLFile,
-		certVerify:     globalLibOptions.certVerify,
-		attrsVerify:    globalLibOptions.attrsVerify,
-		denyPrivateX5U: globalLibOptions.denyPrivateX5U,
-		x5u:            globalLibOptions.x5u,
+		cacheDirPath:       globalLibOptions.cacheDirPath,
+		cacheExpire:        globalLibOptions.cacheExpire,
+		cacheNameMode:      globalLibOptions.cacheNameMode,
+		certCAFile:         globalLibOptions.certCAFile,
+		certCAInter:        globalLibOptions.certCAInter,
+		certCRLFile:        globalLibOptions.certCRLFile,
+		certVerify:         globalLibOptions.certVerify,
+		attrsVerify:        globalLibOptions.attrsVerify,
+		denyPrivateX5U:     globalLibOptions.denyPrivateX5U,
+		maxURLContentBytes: globalLibOptions.maxURLContentBytes,
+		x5u:                globalLibOptions.x5u,
 	}
 }
 
@@ -206,6 +210,9 @@ func (o SJWTOptions) toLibOptions() SJWTLibOptions {
 	libOptions.certVerify = o.CertVerify
 	libOptions.attrsVerify = o.AttrsVerify
 	libOptions.denyPrivateX5U = o.DenyPrivateX5U
+	if o.MaxURLContentBytes > 0 {
+		libOptions.maxURLContentBytes = o.MaxURLContentBytes
+	}
 	if len(o.X5U) > 0 {
 		libOptions.x5u = o.X5U
 	}
@@ -216,16 +223,17 @@ func (o SJWTOptions) toLibOptions() SJWTLibOptions {
 // DefaultSJWTOptions returns the current process-wide defaults as an explicit config.
 func DefaultSJWTOptions() SJWTOptions {
 	return SJWTOptions{
-		CacheDirPath:   globalLibOptions.cacheDirPath,
-		CacheExpire:    globalLibOptions.cacheExpire,
-		CacheNameMode:  globalLibOptions.cacheNameMode,
-		CertCAFile:     globalLibOptions.certCAFile,
-		CertCAInter:    globalLibOptions.certCAInter,
-		CertCRLFile:    globalLibOptions.certCRLFile,
-		CertVerify:     globalLibOptions.certVerify,
-		AttrsVerify:    globalLibOptions.attrsVerify,
-		DenyPrivateX5U: globalLibOptions.denyPrivateX5U,
-		X5U:            globalLibOptions.x5u,
+		CacheDirPath:       globalLibOptions.cacheDirPath,
+		CacheExpire:        globalLibOptions.cacheExpire,
+		CacheNameMode:      globalLibOptions.cacheNameMode,
+		CertCAFile:         globalLibOptions.certCAFile,
+		CertCAInter:        globalLibOptions.certCAInter,
+		CertCRLFile:        globalLibOptions.certCRLFile,
+		CertVerify:         globalLibOptions.certVerify,
+		AttrsVerify:        globalLibOptions.attrsVerify,
+		DenyPrivateX5U:     globalLibOptions.denyPrivateX5U,
+		MaxURLContentBytes: globalLibOptions.maxURLContentBytes,
+		X5U:                globalLibOptions.x5u,
 	}
 }
 
@@ -323,6 +331,12 @@ func SJWTLibOptSetN(optname string, optval int) int {
 	case "DenyPrivateX5U":
 		globalLibOptions.denyPrivateX5U = optval != 0
 		return SJWTRetOK
+	case "MaxURLContentBytes":
+		if optval <= 0 {
+			return SJWTRetErr
+		}
+		globalLibOptions.maxURLContentBytes = optval
+		return SJWTRetOK
 	}
 	return SJWTRetErr
 }
@@ -341,6 +355,8 @@ func SJWTLibOptGetN(optname string) int {
 			return 1
 		}
 		return 0
+	case "MaxURLContentBytes":
+		return globalLibOptions.maxURLContentBytes
 	}
 	return SJWTRetErr
 }
@@ -354,7 +370,7 @@ func SJWTLibOptSetV(optnameval string) int {
 	optName := optArray[0]
 	optVal := optArray[1]
 	switch optName {
-	case "CacheExpires", "CertVerify", "DenyPrivateX5U":
+	case "CacheExpires", "CertVerify", "DenyPrivateX5U", "MaxURLContentBytes":
 		intVal, _ := strconv.Atoi(optVal)
 		return SJWTLibOptSetN(optName, intVal)
 	case "CacheDirPath", "CacheNameMode", "CertCAFile", "CertCAInter", "CertCRLFile":
@@ -805,13 +821,20 @@ func (o *SJWTLibOptions) getURLContent(urlVal string, timeoutVal int) ([]byte, i
 		return nil, SJWTRetErrHTTPStatusCode, fmt.Errorf("http status error: %v", resp.StatusCode)
 	}
 
-	data, err := io.ReadAll(io.LimitReader(resp.Body, maxURLContentBytes+1))
+	data, err := io.ReadAll(io.LimitReader(resp.Body, int64(o.maxURLContentBytes)))
 	if err != nil {
 		return nil, SJWTRetErrHTTPReadBody, fmt.Errorf("read http body failure: %v", err)
 	}
-	if len(data) > maxURLContentBytes {
-		return nil, SJWTRetErrHTTPReadBody,
-			fmt.Errorf("read http body failure: content exceeds %d byte limit", maxURLContentBytes)
+	if len(data) == o.maxURLContentBytes {
+		var extraByte [1]byte
+		bytesRead, readErr := io.ReadFull(resp.Body, extraByte[:])
+		if bytesRead > 0 {
+			return nil, SJWTRetErrHTTPReadBody,
+				fmt.Errorf("read http body failure: content exceeds %d byte limit", o.maxURLContentBytes)
+		}
+		if readErr != nil && readErr != io.EOF {
+			return nil, SJWTRetErrHTTPReadBody, fmt.Errorf("read http body failure: %v", readErr)
+		}
 	}
 
 	if len(o.cacheDirPath) > 0 {
