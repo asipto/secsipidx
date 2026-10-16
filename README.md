@@ -221,8 +221,9 @@ Certificate URL downloads allow private and local destinations by default. Use `
 to reject loopback, private, link-local, multicast, unspecified, and carrier-grade NAT destinations.
 Redirect destinations are checked as well when this restriction is enabled.
 
-Downloaded certificate bodies are limited to 1 MiB. Responses exceeding this limit are rejected
-and are not written to the certificate cache.
+Downloaded certificate bodies are limited to 1 MiB by default. The limit can be configured with
+`-max-url-content-bytes`. Responses exceeding it are rejected and are not written to the certificate
+cache.
 
 The C library exports now:
 
@@ -281,6 +282,8 @@ or `SecSIPIDOptSetV()`:
   invalidated
   * `DenyPrivateX5U` (int) - set to `1` to reject certificate URLs resolving to
   private or local addresses; the default is `0`
+  * `MaxURLContentBytes` (int) - maximum downloaded certificate size in bytes;
+  the default is `1048576`
   * `CertVerify` (int) - the certification verification mode, see the section
   `Certificate Verification` above
   * `CertCAFile` (str) - the path with the custom root CA certificates
