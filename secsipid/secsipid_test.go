@@ -747,12 +747,16 @@ func TestSJWTLibOptSetV(t *testing.T) {
 
 	t.Run("sets numeric options from valid key value input", func(t *testing.T) {
 		expect := expectate.Expect(t)
+		defer secsipid.SJWTLibOptSetN("MaxURLContentBytes", testMaxURLContentBytes)
 
 		expect(secsipid.SJWTLibOptSetV("CacheExpires=42")).ToBe(secsipid.SJWTRetOK)
 		expect(secsipid.SJWTLibOptGetN("CacheExpires")).ToBe(42)
 		expect(secsipid.SJWTLibOptSetV("DenyPrivateX5U=1")).ToBe(secsipid.SJWTRetOK)
 		expect(secsipid.SJWTLibOptGetN("DenyPrivateX5U")).ToBe(1)
 		expect(secsipid.SJWTLibOptSetN("DenyPrivateX5U", 0)).ToBe(secsipid.SJWTRetOK)
+		expect(secsipid.SJWTLibOptSetV("MaxURLContentBytes=2048")).ToBe(secsipid.SJWTRetOK)
+		expect(secsipid.SJWTLibOptGetN("MaxURLContentBytes")).ToBe(2048)
+		expect(secsipid.SJWTLibOptSetN("MaxURLContentBytes", 0)).ToBe(secsipid.SJWTRetErr)
 	})
 
 	t.Run("sets string options from valid key value input", func(t *testing.T) {
@@ -857,6 +861,8 @@ func TestGetURLContent(t *testing.T) {
 	os.Remove("http_example.com_foo")
 	os.Remove("http_localhost:5555_foo")
 	secsipid.SJWTLibOptSetS("CacheNameMode", "plain")
+	secsipid.SJWTLibOptSetN("MaxURLContentBytes", testMaxURLContentBytes)
+	defer secsipid.SJWTLibOptSetN("MaxURLContentBytes", testMaxURLContentBytes)
 
 	tcpDialErrMsg := getTcpDialErrMsg()
 
@@ -1017,6 +1023,26 @@ func TestGetURLContent(t *testing.T) {
 			expectedContent: nil,
 			expectedErrCode: secsipid.SJWTRetErrHTTPReadBody,
 			expectedErrMsg:  "read http body failure: content exceeds 1048576 byte limit",
+		})
+	})
+
+	t.Run("ErrHTTPReadBody uses configured response body size limit", func(t *testing.T) {
+		const configuredLimit = 16
+		secsipid.SJWTLibOptSetN("MaxURLContentBytes", configuredLimit)
+		defer secsipid.SJWTLibOptSetN("MaxURLContentBytes", testMaxURLContentBytes)
+
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte(strings.Repeat("a", configuredLimit+1)))
+		})
+		stopTestServer := startTestServer(handler)
+		defer stopTestServer()
+
+		runTest(t, GetURLValueTest{
+			urlVal:          "http://localhost:5555/foo",
+			timeoutVal:      10,
+			expectedContent: nil,
+			expectedErrCode: secsipid.SJWTRetErrHTTPReadBody,
+			expectedErrMsg:  "read http body failure: content exceeds 16 byte limit",
 		})
 	})
 
