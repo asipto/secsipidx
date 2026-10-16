@@ -76,6 +76,19 @@ func TestRegisterFlagsDeniesPrivateCertificateURLsExplicitly(t *testing.T) {
 	}
 }
 
+func TestRegisterFlagsSetsMaximumURLContentSize(t *testing.T) {
+	opts := cliops
+	fs := flag.NewFlagSet("test", flag.ContinueOnError)
+	registerFlags(fs, &opts)
+
+	if err := fs.Parse([]string{"-max-url-content-bytes", "2048"}); err != nil {
+		t.Fatalf("parse flags: %v", err)
+	}
+	if opts.maxURLContentBytes != 2048 {
+		t.Fatalf("expected max URL content size 2048, got %d", opts.maxURLContentBytes)
+	}
+}
+
 func TestCLICommandsFailOnMissingInputFiles(t *testing.T) {
 	t.Run("sign fails when header file is missing", func(t *testing.T) {
 		prev := cliops
