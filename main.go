@@ -444,8 +444,8 @@ func httpHandleV1Check(w http.ResponseWriter, r *http.Request) {
 	var err error
 	ret, err = secsipid.SJWTCheckFullIdentity(string(body), cliops.expire, cliops.fpubkey, cliops.timeout)
 
-	if err != nil {
-		fmt.Printf("failed checking identity: %v\n", err)
+	if err != nil || ret != secsipid.SJWTRetOK {
+		fmt.Printf("failed checking identity - return code: %d, error: %v\n", ret, err)
 		http.Error(w, "FAILED\n", http.StatusInternalServerError)
 		return
 	}
