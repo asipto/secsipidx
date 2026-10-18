@@ -1,12 +1,21 @@
 package main
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"flag"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/asipto/secsipidx/secsipid"
 )
 
 func TestHTTPServiceExitCode(t *testing.T) {
@@ -149,5 +158,50 @@ func TestReadHTTPRequestBodyAllowsSmallPayloads(t *testing.T) {
 	}
 	if string(body) != "ok" {
 		t.Fatalf("expected body %q, got %q", "ok", string(body))
+	}
+}
+
+func TestHTTPHandleV1CheckRejectsNonzeroResultWithoutError(t *testing.T) {
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("generate private key: %v", err)
+	}
+	privateKeyDER, err := x509.MarshalECPrivateKey(privateKey)
+	if err != nil {
+		t.Fatalf("marshal private key: %v", err)
+	}
+	privateKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: privateKeyDER})
+
+	publicKeyDER, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	if err != nil {
+		t.Fatalf("marshal public key: %v", err)
+	}
+	publicKeyPath := filepath.Join(t.TempDir(), "public.pem")
+	if err := os.WriteFile(publicKeyPath,
+		pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: publicKeyDER}), 0600); err != nil {
+		t.Fatalf("write public key: %v", err)
+	}
+
+	identity, ret, err := secsipid.SJWTGetIdentityPrvKey(
+		"12025550100", "12025550101", "A", "", "https://example.com/cert.pem", privateKeyPEM)
+	if err != nil || ret != secsipid.SJWTRetOK {
+		t.Fatalf("build identity: ret=%d err=%v", ret, err)
+	}
+	identityToken := strings.SplitN(identity, ";", 2)[0]
+
+	previousOptions := cliops
+	defer func() { cliops = previousOptions }()
+	cliops.fpubkey = publicKeyPath
+	cliops.expire = 3600
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/check", strings.NewReader(identityToken))
+	rec := httptest.NewRecorder()
+	httpHandleV1Check(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, rec.Code)
+	}
+	if strings.TrimSpace(rec.Body.String()) != "FAILED" {
+		t.Fatalf("expected failed response, got %q", rec.Body.String())
 	}
 }
