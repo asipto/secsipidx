@@ -1,8 +1,10 @@
 package secsipid
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,8 +12,9 @@ import (
 )
 
 type urlCache interface {
-	Get(urlVal string) ([]byte, error)
-	Set(urlVal string, data []byte) error
+	Get(ctx context.Context, urlVal string) ([]byte, error)
+	Set(ctx context.Context, urlVal string, data []byte) error
+	Close() error
 }
 
 type fileURLCache struct {
@@ -19,6 +22,8 @@ type fileURLCache struct {
 	expire   int
 	nameMode string
 }
+
+var _ urlCache = (*fileURLCache)(nil)
 
 func newFileURLCache(dirPath string, expire int, nameMode string) *fileURLCache {
 	return &fileURLCache{
@@ -44,7 +49,7 @@ func (c *fileURLCache) filePath(urlVal string) string {
 	return fileName
 }
 
-func (c *fileURLCache) Get(urlVal string) ([]byte, error) {
+func (c *fileURLCache) Get(_ context.Context, urlVal string) ([]byte, error) {
 	filePath := c.filePath(urlVal)
 	fileStat, err := os.Stat(filePath)
 	if err != nil {
@@ -57,7 +62,7 @@ func (c *fileURLCache) Get(urlVal string) ([]byte, error) {
 	return os.ReadFile(filePath)
 }
 
-func (c *fileURLCache) Set(urlVal string, data []byte) error {
+func (c *fileURLCache) Set(_ context.Context, urlVal string, data []byte) error {
 	filePath := c.filePath(urlVal)
 	cacheDir := filepath.Dir(filePath)
 	if err := os.MkdirAll(cacheDir, 0750); err != nil {
@@ -86,12 +91,46 @@ func (c *fileURLCache) Set(urlVal string, data []byte) error {
 	return os.Rename(tempPath, filePath)
 }
 
+func (c *fileURLCache) Close() error {
+	return nil
+}
+
+type errorURLCache struct {
+	err error
+}
+
+func (c *errorURLCache) Get(_ context.Context, _ string) ([]byte, error) {
+	return nil, c.err
+}
+
+func (c *errorURLCache) Set(_ context.Context, _ string, _ []byte) error {
+	return c.err
+}
+
+func (c *errorURLCache) Close() error {
+	return nil
+}
+
 func (o *SJWTLibOptions) refreshURLCache() {
-	if o.cacheDirPath == "" {
+	switch o.cacheBackend {
+	case "", "file":
+		if o.cacheDirPath == "" {
+			o.cache = nil
+			return
+		}
+		o.cache = newFileURLCache(o.cacheDirPath, o.cacheExpire, o.cacheNameMode)
+	case "none":
 		o.cache = nil
-		return
+	case "redis":
+		cache, err := newRedisURLCache(o.redisURL, o.redisKeyPrefix, o.cacheExpire, o.redisTimeout)
+		if err != nil {
+			o.cache = &errorURLCache{err: err}
+			return
+		}
+		o.cache = cache
+	default:
+		o.cache = &errorURLCache{err: fmt.Errorf("unsupported cache backend %q", o.cacheBackend)}
 	}
-	o.cache = newFileURLCache(o.cacheDirPath, o.cacheExpire, o.cacheNameMode)
 }
 
 func (o *SJWTLibOptions) fileURLCache() *fileURLCache {
@@ -111,7 +150,7 @@ func SJWTGetURLCachedContent(urlVal string) ([]byte, error) {
 	if cache == nil {
 		cache = options.fileURLCache()
 	}
-	return cache.Get(urlVal)
+	return cache.Get(context.Background(), urlVal)
 }
 
 // SJWTSetURLCachedContent writes URL content to the configured cache.
@@ -121,5 +160,5 @@ func SJWTSetURLCachedContent(urlVal string, data []byte) error {
 	if cache == nil {
 		cache = options.fileURLCache()
 	}
-	return cache.Set(urlVal, data)
+	return cache.Set(context.Background(), urlVal, data)
 }
