@@ -20,6 +20,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -766,6 +767,37 @@ func TestSJWTLibOptSetV(t *testing.T) {
 		}
 	})
 
+	t.Run("rejects invalid numeric values without changing options", func(t *testing.T) {
+		testCases := []struct {
+			name     string
+			option   string
+			value    string
+			baseline int
+		}{
+			{name: "empty", option: "CacheExpires", value: "", baseline: 42},
+			{name: "text", option: "CertVerify", value: "invalid", baseline: 7},
+			{name: "decimal", option: "DenyPrivateX5U", value: "1.5", baseline: 1},
+			{name: "overflow", option: "MaxURLContentBytes", value: "999999999999999999999999", baseline: testMaxURLContentBytes},
+		}
+
+		for _, testCase := range testCases {
+			t.Run(testCase.name, func(t *testing.T) {
+				previous := secsipid.SJWTLibOptGetN(testCase.option)
+				defer secsipid.SJWTLibOptSetN(testCase.option, previous)
+
+				if ret := secsipid.SJWTLibOptSetN(testCase.option, testCase.baseline); ret != secsipid.SJWTRetOK {
+					t.Fatalf("set baseline for %s: %d", testCase.option, ret)
+				}
+				if ret := secsipid.SJWTLibOptSetV(testCase.option + "=" + testCase.value); ret != secsipid.SJWTRetErr {
+					t.Fatalf("expected invalid value for %s to fail, got %d", testCase.option, ret)
+				}
+				if value := secsipid.SJWTLibOptGetN(testCase.option); value != testCase.baseline {
+					t.Fatalf("expected %s to remain %d, got %d", testCase.option, testCase.baseline, value)
+				}
+			})
+		}
+	})
+
 	t.Run("sets numeric options from valid key value input", func(t *testing.T) {
 		expect := expectate.Expect(t)
 		defer secsipid.SJWTLibOptSetN("MaxURLContentBytes", testMaxURLContentBytes)
@@ -786,6 +818,62 @@ func TestSJWTLibOptSetV(t *testing.T) {
 		expect(secsipid.SJWTLibOptSetV("CertCAFile=dummy-ca.pem")).ToBe(secsipid.SJWTRetOK)
 		expect(secsipid.SJWTLibOptSetS("CertCAFile", "")).ToBe(secsipid.SJWTRetOK)
 	})
+}
+
+func TestLegacyGlobalOptionsConcurrentAccess(t *testing.T) {
+	original := secsipid.DefaultSJWTOptions()
+	defer secsipid.SetURLFileCacheOptions(original.CacheDirPath, original.CacheExpire)
+
+	secsipid.SetURLFileCacheOptions("cache-a", 1)
+	start := make(chan struct{})
+	errors := make(chan string, 1)
+	var waitGroup sync.WaitGroup
+
+	reportError := func(message string) {
+		select {
+		case errors <- message:
+		default:
+		}
+	}
+
+	waitGroup.Add(1)
+	go func() {
+		defer waitGroup.Done()
+		<-start
+		for i := 0; i < 1000; i++ {
+			secsipid.SetURLFileCacheOptions("cache-a", 1)
+			secsipid.SetURLFileCacheOptions("cache-b", 2)
+		}
+	}()
+
+	for i := 0; i < 4; i++ {
+		waitGroup.Add(1)
+		go func() {
+			defer waitGroup.Done()
+			<-start
+			for j := 0; j < 1000; j++ {
+				options := secsipid.DefaultSJWTOptions()
+				validPair := options.CacheDirPath == "cache-a" && options.CacheExpire == 1 ||
+					options.CacheDirPath == "cache-b" && options.CacheExpire == 2
+				if !validPair {
+					reportError(fmt.Sprintf("inconsistent cache options: path=%q expire=%d",
+						options.CacheDirPath, options.CacheExpire))
+					return
+				}
+				secsipid.SJWTGetURLCacheFilePath("https://example.com/cert.pem")
+				secsipid.NewSJWTVerifier(secsipid.SJWTOptions{})
+				secsipid.SJWTLibOptGetN("CacheExpires")
+			}
+		}()
+	}
+
+	close(start)
+	waitGroup.Wait()
+	select {
+	case message := <-errors:
+		t.Fatal(message)
+	default:
+	}
 }
 
 func TestSignerAndVerifierUseInstanceLocalOptions(t *testing.T) {
