@@ -371,7 +371,10 @@ func SJWTLibOptSetV(optnameval string) int {
 	optVal := optArray[1]
 	switch optName {
 	case "CacheExpires", "CertVerify", "DenyPrivateX5U", "MaxURLContentBytes":
-		intVal, _ := strconv.Atoi(optVal)
+		intVal, err := strconv.Atoi(optVal)
+		if err != nil {
+			return SJWTRetErr
+		}
 		return SJWTLibOptSetN(optName, intVal)
 	case "CacheDirPath", "CacheNameMode", "CertCAFile", "CertCAInter", "CertCRLFile":
 		return SJWTLibOptSetS(optName, optVal)
