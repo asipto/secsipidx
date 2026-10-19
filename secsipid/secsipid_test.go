@@ -425,7 +425,7 @@ type DummyCertGenerator struct {
 }
 
 func NewDummyCA() DummyCertGenerator {
-	caPrivKey, _ := rsa.GenerateKey(rand.Reader, 512)
+	caPrivKey, _ := rsa.GenerateKey(rand.Reader, 1024)
 
 	ca := &x509.Certificate{
 		SerialNumber: big.NewInt(2019),
@@ -481,7 +481,7 @@ func NewIntermediateCA(certGenerator DummyCertGenerator) DummyCertGenerator {
 		BasicConstraintsValid: true,
 	}
 
-	caPrivKey, _ := rsa.GenerateKey(rand.Reader, 512)
+	caPrivKey, _ := rsa.GenerateKey(rand.Reader, 1024)
 
 	caBytes, _ := x509.CreateCertificate(
 		rand.Reader, ca, certGenerator.ca,
@@ -544,7 +544,7 @@ func (gen DummyCertGenerator) generateCertWithTimes(notBefore time.Time, notAfte
 		KeyUsage:     x509.KeyUsageDigitalSignature,
 	}
 
-	certPrivKey, _ := rsa.GenerateKey(rand.Reader, 512)
+	certPrivKey, _ := rsa.GenerateKey(rand.Reader, 1024)
 	certBytes, _ := x509.CreateCertificate(
 		rand.Reader, cert, gen.ca, &certPrivKey.PublicKey, gen.caPrivKey)
 
@@ -612,7 +612,7 @@ func TestParseECPrivateKeyFromPEM(t *testing.T) {
 	})
 
 	t.Run("ErrPrvKeyInvalidEC with non-EC PKCS8 key", func(t *testing.T) {
-		privateKey, _ := rsa.GenerateKey(rand.Reader, 512)
+		privateKey, _ := rsa.GenerateKey(rand.Reader, 1024)
 		rsaPKCS8Key, _ := x509.MarshalPKCS8PrivateKey(privateKey)
 		rsaKeyPEM, _ := pemEncode(&pem.Block{
 			Type:  "RSA PRIVATE KEY",
@@ -709,7 +709,7 @@ func TestParseECPublicKeyFromPEM(t *testing.T) {
 	})
 
 	t.Run("ErrCertInvalidEC with non-EC public key", func(t *testing.T) {
-		privKey, _ := rsa.GenerateKey(rand.Reader, 512)
+		privKey, _ := rsa.GenerateKey(rand.Reader, 1024)
 		pubKey := &privKey.PublicKey
 		pubKeyBytes, _ := x509.MarshalPKIXPublicKey(pubKey)
 		rsaPublicKey, _ := pemEncode(&pem.Block{
