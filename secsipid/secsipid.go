@@ -560,6 +560,9 @@ func (o *SJWTLibOptions) pubKeyVerify(pubKey []byte) (int, error) {
 			return SJWTRetErrCertReadCRLFile, errors.New("failed to read CRL file")
 		}
 		rootCRL, err = x509.ParseCRL(certsCRLData)
+		if err != nil || rootCRL == nil {
+			return SJWTRetErrCertReadCRLFile, errors.New("failed to parse CRL file")
+		}
 		for _, revoked := range rootCRL.TBSCertList.RevokedCertificates {
 			if certVal.SerialNumber.Cmp(revoked.SerialNumber) == 0 {
 				return SJWTRetErrCertRevoked, errors.New("serial number match - certificate is revoked")
