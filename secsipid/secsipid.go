@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -156,34 +157,31 @@ const (
 	CertVerifyOptTimeOnly = (1 << 5)
 )
 
-var globalLibOptions = SJWTLibOptions{
-	cacheDirPath:       "",
-	cacheExpire:        3600,
-	cacheNameMode:      "plain",
-	certCAFile:         "",
-	certCAInter:        "",
-	certCRLFile:        "",
-	certVerify:         0,
-	attrsVerify:        1,
-	denyPrivateX5U:     false,
-	maxURLContentBytes: defaultMaxURLContentBytes,
-	x5u:                "https://127.0.0.1/cert.pem",
+var (
+	globalLibOptionsMu sync.RWMutex
+	globalLibOptions   = SJWTLibOptions{
+		cacheDirPath:       "",
+		cacheExpire:        3600,
+		cacheNameMode:      "plain",
+		certCAFile:         "",
+		certCAInter:        "",
+		certCRLFile:        "",
+		certVerify:         0,
+		attrsVerify:        1,
+		denyPrivateX5U:     false,
+		maxURLContentBytes: defaultMaxURLContentBytes,
+		x5u:                "https://127.0.0.1/cert.pem",
+	}
+)
+
+func globalLibOptionsSnapshot() SJWTLibOptions {
+	globalLibOptionsMu.RLock()
+	defer globalLibOptionsMu.RUnlock()
+	return globalLibOptions
 }
 
 func defaultSJWTLibOptions() SJWTLibOptions {
-	return SJWTLibOptions{
-		cacheDirPath:       globalLibOptions.cacheDirPath,
-		cacheExpire:        globalLibOptions.cacheExpire,
-		cacheNameMode:      globalLibOptions.cacheNameMode,
-		certCAFile:         globalLibOptions.certCAFile,
-		certCAInter:        globalLibOptions.certCAInter,
-		certCRLFile:        globalLibOptions.certCRLFile,
-		certVerify:         globalLibOptions.certVerify,
-		attrsVerify:        globalLibOptions.attrsVerify,
-		denyPrivateX5U:     globalLibOptions.denyPrivateX5U,
-		maxURLContentBytes: globalLibOptions.maxURLContentBytes,
-		x5u:                globalLibOptions.x5u,
-	}
+	return globalLibOptionsSnapshot()
 }
 
 func (o SJWTOptions) toLibOptions() SJWTLibOptions {
@@ -222,18 +220,19 @@ func (o SJWTOptions) toLibOptions() SJWTLibOptions {
 
 // DefaultSJWTOptions returns the current process-wide defaults as an explicit config.
 func DefaultSJWTOptions() SJWTOptions {
+	options := globalLibOptionsSnapshot()
 	return SJWTOptions{
-		CacheDirPath:       globalLibOptions.cacheDirPath,
-		CacheExpire:        globalLibOptions.cacheExpire,
-		CacheNameMode:      globalLibOptions.cacheNameMode,
-		CertCAFile:         globalLibOptions.certCAFile,
-		CertCAInter:        globalLibOptions.certCAInter,
-		CertCRLFile:        globalLibOptions.certCRLFile,
-		CertVerify:         globalLibOptions.certVerify,
-		AttrsVerify:        globalLibOptions.attrsVerify,
-		DenyPrivateX5U:     globalLibOptions.denyPrivateX5U,
-		MaxURLContentBytes: globalLibOptions.maxURLContentBytes,
-		X5U:                globalLibOptions.x5u,
+		CacheDirPath:       options.cacheDirPath,
+		CacheExpire:        options.cacheExpire,
+		CacheNameMode:      options.cacheNameMode,
+		CertCAFile:         options.certCAFile,
+		CertCAInter:        options.certCAInter,
+		CertCRLFile:        options.certCRLFile,
+		CertVerify:         options.certVerify,
+		AttrsVerify:        options.attrsVerify,
+		DenyPrivateX5U:     options.denyPrivateX5U,
+		MaxURLContentBytes: options.maxURLContentBytes,
+		X5U:                options.x5u,
 	}
 }
 
@@ -284,12 +283,16 @@ var (
 
 // SetFileCacheOptions --
 func SetURLFileCacheOptions(path string, expire int) {
+	globalLibOptionsMu.Lock()
+	defer globalLibOptionsMu.Unlock()
 	globalLibOptions.cacheDirPath = path
 	globalLibOptions.cacheExpire = expire
 }
 
 // SJWTLibOptSetS --
 func SJWTLibOptSetS(optname string, optval string) int {
+	globalLibOptionsMu.Lock()
+	defer globalLibOptionsMu.Unlock()
 	switch optname {
 	case "CacheDirPath":
 		globalLibOptions.cacheDirPath = optval
@@ -318,6 +321,8 @@ func SJWTLibOptSetS(optname string, optval string) int {
 
 // SJWTLibOptSetN --
 func SJWTLibOptSetN(optname string, optval int) int {
+	globalLibOptionsMu.Lock()
+	defer globalLibOptionsMu.Unlock()
 	switch optname {
 	case "CacheExpires":
 		globalLibOptions.cacheExpire = optval
@@ -343,6 +348,8 @@ func SJWTLibOptSetN(optname string, optval int) int {
 
 // SJWTLibOptGetN --
 func SJWTLibOptGetN(optname string) int {
+	globalLibOptionsMu.RLock()
+	defer globalLibOptionsMu.RUnlock()
 	switch optname {
 	case "CacheExpires":
 		return globalLibOptions.cacheExpire
@@ -395,7 +402,8 @@ func SJWTRemoveWhiteSpaces(s string) string {
 
 // SJWTRemoveWhiteSpaces --
 func SJWTGetURLCacheFilePath(urlVal string) string {
-	return globalLibOptions.getURLCacheFilePath(urlVal)
+	options := globalLibOptionsSnapshot()
+	return options.getURLCacheFilePath(urlVal)
 }
 
 func (o *SJWTLibOptions) getURLCacheFilePath(urlVal string) string {
@@ -416,7 +424,8 @@ func (o *SJWTLibOptions) getURLCacheFilePath(urlVal string) string {
 
 // SJWTPubKeyVerify -
 func SJWTPubKeyVerify(pubKey []byte) (int, error) {
-	return globalLibOptions.pubKeyVerify(pubKey)
+	options := globalLibOptionsSnapshot()
+	return options.pubKeyVerify(pubKey)
 }
 
 func (o *SJWTLibOptions) pubKeyVerify(pubKey []byte) (int, error) {
@@ -665,7 +674,8 @@ func SJWTBase64DecodeBytes(seg string) ([]byte, error) {
 
 // SJWTGetURLCachedContent --
 func SJWTGetURLCachedContent(urlVal string) ([]byte, error) {
-	return globalLibOptions.getURLCachedContent(urlVal)
+	options := globalLibOptionsSnapshot()
+	return options.getURLCachedContent(urlVal)
 }
 
 func (o *SJWTLibOptions) getURLCachedContent(urlVal string) ([]byte, error) {
@@ -685,7 +695,8 @@ func (o *SJWTLibOptions) getURLCachedContent(urlVal string) ([]byte, error) {
 
 // SJWTSetURLCachedContent --
 func SJWTSetURLCachedContent(urlVal string, data []byte) error {
-	return globalLibOptions.setURLCachedContent(urlVal, data)
+	options := globalLibOptionsSnapshot()
+	return options.setURLCachedContent(urlVal, data)
 }
 
 func (o *SJWTLibOptions) setURLCachedContent(urlVal string, data []byte) error {
@@ -720,7 +731,8 @@ func (o *SJWTLibOptions) setURLCachedContent(urlVal string, data []byte) error {
 
 // SJWTGetURLContent --
 func SJWTGetURLContent(urlVal string, timeoutVal int) ([]byte, int, error) {
-	return globalLibOptions.getURLContent(urlVal, timeoutVal)
+	options := globalLibOptionsSnapshot()
+	return options.getURLContent(urlVal, timeoutVal)
 }
 
 func validateRemoteURL(parsedURL *url.URL) error {
@@ -1039,7 +1051,8 @@ func SJWTEncodeTextWithPrvKey(headerJSON string, payloadJSON string,
 
 // SJWTCheckAttributes - implements the verify of attributes
 func SJWTCheckAttributes(bToken string, paramInfo string) (int, error) {
-	return globalLibOptions.checkAttributes(bToken, paramInfo)
+	options := globalLibOptionsSnapshot()
+	return options.checkAttributes(bToken, paramInfo)
 }
 
 func (o *SJWTLibOptions) checkAttributes(bToken string, paramInfo string) (int, error) {
@@ -1072,7 +1085,8 @@ func (o *SJWTLibOptions) checkAttributes(bToken string, paramInfo string) (int, 
 // SJWTCheckIdentityPKMode - implements the verify of identity
 func SJWTCheckIdentityPKMode(identityVal string, expireVal int, pubkeyVal string,
 	pubkeyMode int, timeoutVal int) (int, error) {
-	return globalLibOptions.checkIdentityPKMode(identityVal, expireVal, pubkeyVal,
+	options := globalLibOptionsSnapshot()
+	return options.checkIdentityPKMode(identityVal, expireVal, pubkeyVal,
 		pubkeyMode, timeoutVal)
 }
 
@@ -1132,7 +1146,8 @@ func (o *SJWTLibOptions) checkIdentityPKMode(identityVal string, expireVal int,
 // SJWTCheckIdentity - implements the verify of identity
 func SJWTCheckIdentity(identityVal string, expireVal int, pubkeyPath string,
 	timeoutVal int) (int, error) {
-	return globalLibOptions.checkIdentity(identityVal, expireVal, pubkeyPath, timeoutVal)
+	options := globalLibOptionsSnapshot()
+	return options.checkIdentity(identityVal, expireVal, pubkeyPath, timeoutVal)
 }
 
 func (o *SJWTLibOptions) checkIdentity(identityVal string, expireVal int, pubkeyPath string,
@@ -1172,7 +1187,8 @@ func SJWTGetValidInfoAttr(hdrtoken []string) (string, int, error) {
 // SJWTCheckFullIdentity - implements the verify of identity
 func SJWTCheckFullIdentity(identityVal string, expireVal int, pubkeyPath string,
 	timeoutVal int) (int, error) {
-	return globalLibOptions.checkFullIdentity(identityVal, expireVal, pubkeyPath, timeoutVal)
+	options := globalLibOptionsSnapshot()
+	return options.checkFullIdentity(identityVal, expireVal, pubkeyPath, timeoutVal)
 }
 
 func (o *SJWTLibOptions) checkFullIdentity(identityVal string, expireVal int,
@@ -1208,7 +1224,8 @@ func (o *SJWTLibOptions) checkFullIdentity(identityVal string, expireVal int,
 
 // SJWTCheckFullIdentityURL - implements the verify of identity using URL
 func SJWTCheckFullIdentityURL(identityVal string, expireVal int, timeoutVal int) (int, error) {
-	return globalLibOptions.checkFullIdentityURL(identityVal, expireVal, timeoutVal)
+	options := globalLibOptionsSnapshot()
+	return options.checkFullIdentityURL(identityVal, expireVal, timeoutVal)
 }
 
 func (o *SJWTLibOptions) checkFullIdentityURL(identityVal string, expireVal int,
@@ -1271,7 +1288,8 @@ func (o *SJWTLibOptions) checkFullIdentityURL(identityVal string, expireVal int,
 
 // SJWTCheckFullIdentityPubKey - implements the verify of identity using public key
 func SJWTCheckFullIdentityPubKey(identityVal string, expireVal int, pubkeyVal string) (int, error) {
-	return globalLibOptions.checkFullIdentityPubKey(identityVal, expireVal, pubkeyVal)
+	options := globalLibOptionsSnapshot()
+	return options.checkFullIdentityPubKey(identityVal, expireVal, pubkeyVal)
 }
 
 func (o *SJWTLibOptions) checkFullIdentityPubKey(identityVal string, expireVal int,
@@ -1304,7 +1322,8 @@ func (o *SJWTLibOptions) checkFullIdentityPubKey(identityVal string, expireVal i
 // SJWTGetIdentityPrvKey --
 func SJWTGetIdentityPrvKey(origTN string, destTN string, attestVal string, origID string,
 	x5uVal string, prvkeyData []byte) (string, int, error) {
-	return globalLibOptions.getIdentityPrvKey(origTN, destTN, attestVal, origID, x5uVal, prvkeyData)
+	options := globalLibOptionsSnapshot()
+	return options.getIdentityPrvKey(origTN, destTN, attestVal, origID, x5uVal, prvkeyData)
 }
 
 func (o *SJWTLibOptions) getIdentityPrvKey(origTN string, destTN string, attestVal string,
@@ -1356,7 +1375,8 @@ func (o *SJWTLibOptions) getIdentityPrvKey(origTN string, destTN string, attestV
 // SJWTGetIdentity --
 func SJWTGetIdentity(origTN string, destTN string, attestVal string, origID string,
 	x5uVal string, prvkeyPath string) (string, int, error) {
-	return globalLibOptions.getIdentity(origTN, destTN, attestVal, origID, x5uVal, prvkeyPath)
+	options := globalLibOptionsSnapshot()
+	return options.getIdentity(origTN, destTN, attestVal, origID, x5uVal, prvkeyPath)
 }
 
 func (o *SJWTLibOptions) getIdentity(origTN string, destTN string, attestVal string,
