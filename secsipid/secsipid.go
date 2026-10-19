@@ -5,11 +5,9 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -20,7 +18,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -109,6 +106,7 @@ type SJWTPayload struct {
 }
 
 type SJWTLibOptions struct {
+	cache              urlCache
 	cacheDirPath       string
 	cacheExpire        int
 	cacheNameMode      string
@@ -214,6 +212,7 @@ func (o SJWTOptions) toLibOptions() SJWTLibOptions {
 	if len(o.X5U) > 0 {
 		libOptions.x5u = o.X5U
 	}
+	libOptions.refreshURLCache()
 
 	return libOptions
 }
@@ -287,6 +286,7 @@ func SetURLFileCacheOptions(path string, expire int) {
 	defer globalLibOptionsMu.Unlock()
 	globalLibOptions.cacheDirPath = path
 	globalLibOptions.cacheExpire = expire
+	globalLibOptions.refreshURLCache()
 }
 
 // SJWTLibOptSetS --
@@ -296,12 +296,14 @@ func SJWTLibOptSetS(optname string, optval string) int {
 	switch optname {
 	case "CacheDirPath":
 		globalLibOptions.cacheDirPath = optval
+		globalLibOptions.refreshURLCache()
 		return SJWTRetOK
 	case "CacheNameMode":
 		if optval != "plain" && optval != "sha256" {
 			return SJWTRetErr
 		}
 		globalLibOptions.cacheNameMode = optval
+		globalLibOptions.refreshURLCache()
 		return SJWTRetOK
 	case "CertCAFile":
 		globalLibOptions.certCAFile = optval
@@ -326,6 +328,7 @@ func SJWTLibOptSetN(optname string, optval int) int {
 	switch optname {
 	case "CacheExpires":
 		globalLibOptions.cacheExpire = optval
+		globalLibOptions.refreshURLCache()
 		return SJWTRetOK
 	case "CertVerify":
 		globalLibOptions.certVerify = optval
@@ -398,28 +401,6 @@ func SJWTRemoveWhiteSpaces(s string) string {
 		}
 	}
 	return string(rout)
-}
-
-// SJWTRemoveWhiteSpaces --
-func SJWTGetURLCacheFilePath(urlVal string) string {
-	options := globalLibOptionsSnapshot()
-	return options.getURLCacheFilePath(urlVal)
-}
-
-func (o *SJWTLibOptions) getURLCacheFilePath(urlVal string) string {
-	filePath := ""
-	switch o.cacheNameMode {
-	case "sha256":
-		hashVal := sha256.Sum256([]byte(urlVal))
-		filePath = "url_" + hex.EncodeToString(hashVal[:])
-	default:
-		filePath = strings.Replace(urlVal, "://", "_", -1)
-		filePath = strings.Replace(filePath, "/", "_", -1)
-	}
-	if len(o.cacheDirPath) > 0 {
-		filePath = filepath.Join(o.cacheDirPath, filePath)
-	}
-	return filePath
 }
 
 // SJWTPubKeyVerify -
@@ -672,63 +653,6 @@ func SJWTBase64DecodeBytes(seg string) ([]byte, error) {
 	return base64.URLEncoding.DecodeString(seg)
 }
 
-// SJWTGetURLCachedContent --
-func SJWTGetURLCachedContent(urlVal string) ([]byte, error) {
-	options := globalLibOptionsSnapshot()
-	return options.getURLCachedContent(urlVal)
-}
-
-func (o *SJWTLibOptions) getURLCachedContent(urlVal string) ([]byte, error) {
-	filePath := o.getURLCacheFilePath(urlVal)
-
-	fileStat, err := os.Stat(filePath)
-	if err != nil {
-		return nil, err
-	}
-	tnow := time.Now()
-	if int(tnow.Sub(fileStat.ModTime()).Seconds()) > o.cacheExpire {
-		os.Remove(filePath)
-		return nil, nil
-	}
-	return os.ReadFile(filePath)
-}
-
-// SJWTSetURLCachedContent --
-func SJWTSetURLCachedContent(urlVal string, data []byte) error {
-	options := globalLibOptionsSnapshot()
-	return options.setURLCachedContent(urlVal, data)
-}
-
-func (o *SJWTLibOptions) setURLCachedContent(urlVal string, data []byte) error {
-	filePath := o.getURLCacheFilePath(urlVal)
-	cacheDir := filepath.Dir(filePath)
-
-	if err := os.MkdirAll(cacheDir, 0750); err != nil {
-		return err
-	}
-
-	tempFile, err := os.CreateTemp(cacheDir, ".secsipid-cache-*")
-	if err != nil {
-		return err
-	}
-	tempPath := tempFile.Name()
-	defer os.Remove(tempPath)
-
-	if _, err = tempFile.Write(data); err != nil {
-		tempFile.Close()
-		return err
-	}
-	if err = tempFile.Chmod(0640); err != nil {
-		tempFile.Close()
-		return err
-	}
-	if err = tempFile.Close(); err != nil {
-		return err
-	}
-
-	return os.Rename(tempPath, filePath)
-}
-
 // SJWTGetURLContent --
 func SJWTGetURLContent(urlVal string, timeoutVal int) ([]byte, int, error) {
 	options := globalLibOptionsSnapshot()
@@ -803,8 +727,8 @@ func (o *SJWTLibOptions) getURLContent(urlVal string, timeoutVal int) ([]byte, i
 		return nil, SJWTRetErrHTTPInvalidURL, errors.New("invalid URL value")
 	}
 
-	if len(o.cacheDirPath) > 0 {
-		cdata, cerr := o.getURLCachedContent(urlVal)
+	if o.cache != nil {
+		cdata, cerr := o.cache.Get(urlVal)
 		if cdata != nil {
 			return cdata, SJWTRetOK, cerr
 		}
@@ -855,8 +779,8 @@ func (o *SJWTLibOptions) getURLContent(urlVal string, timeoutVal int) ([]byte, i
 		}
 	}
 
-	if len(o.cacheDirPath) > 0 {
-		o.setURLCachedContent(urlVal, data)
+	if o.cache != nil {
+		_ = o.cache.Set(urlVal, data)
 	}
 
 	return data, SJWTRetOK, nil
