@@ -107,9 +107,13 @@ type SJWTPayload struct {
 
 type SJWTLibOptions struct {
 	cache              urlCache
+	cacheBackend       string
 	cacheDirPath       string
 	cacheExpire        int
 	cacheNameMode      string
+	redisURL           string
+	redisKeyPrefix     string
+	redisTimeout       int
 	certCAFile         string
 	certCAInter        string
 	certCRLFile        string
@@ -123,9 +127,13 @@ type SJWTLibOptions struct {
 // SJWTOptions - configuration for signer and verifier instances without relying
 // on process-wide mutable state.
 type SJWTOptions struct {
+	CacheBackend       string
 	CacheDirPath       string
 	CacheExpire        int
 	CacheNameMode      string
+	RedisURL           string
+	RedisKeyPrefix     string
+	RedisTimeout       int
 	CertCAFile         string
 	CertCAInter        string
 	CertCRLFile        string
@@ -158,9 +166,13 @@ const (
 var (
 	globalLibOptionsMu sync.RWMutex
 	globalLibOptions   = SJWTLibOptions{
+		cacheBackend:       "",
 		cacheDirPath:       "",
 		cacheExpire:        3600,
 		cacheNameMode:      "plain",
+		redisURL:           "",
+		redisKeyPrefix:     defaultRedisKeyPrefix,
+		redisTimeout:       defaultRedisTimeout,
 		certCAFile:         "",
 		certCAInter:        "",
 		certCRLFile:        "",
@@ -185,6 +197,9 @@ func defaultSJWTLibOptions() SJWTLibOptions {
 func (o SJWTOptions) toLibOptions() SJWTLibOptions {
 	libOptions := defaultSJWTLibOptions()
 
+	if len(o.CacheBackend) > 0 {
+		libOptions.cacheBackend = o.CacheBackend
+	}
 	if len(o.CacheDirPath) > 0 {
 		libOptions.cacheDirPath = o.CacheDirPath
 	}
@@ -193,6 +208,15 @@ func (o SJWTOptions) toLibOptions() SJWTLibOptions {
 	}
 	if len(o.CacheNameMode) > 0 {
 		libOptions.cacheNameMode = o.CacheNameMode
+	}
+	if len(o.RedisURL) > 0 {
+		libOptions.redisURL = o.RedisURL
+	}
+	if len(o.RedisKeyPrefix) > 0 {
+		libOptions.redisKeyPrefix = o.RedisKeyPrefix
+	}
+	if o.RedisTimeout != 0 {
+		libOptions.redisTimeout = o.RedisTimeout
 	}
 	if len(o.CertCAFile) > 0 {
 		libOptions.certCAFile = o.CertCAFile
@@ -221,9 +245,13 @@ func (o SJWTOptions) toLibOptions() SJWTLibOptions {
 func DefaultSJWTOptions() SJWTOptions {
 	options := globalLibOptionsSnapshot()
 	return SJWTOptions{
+		CacheBackend:       options.cacheBackend,
 		CacheDirPath:       options.cacheDirPath,
 		CacheExpire:        options.cacheExpire,
 		CacheNameMode:      options.cacheNameMode,
+		RedisURL:           options.redisURL,
+		RedisKeyPrefix:     options.redisKeyPrefix,
+		RedisTimeout:       options.redisTimeout,
 		CertCAFile:         options.certCAFile,
 		CertCAInter:        options.certCAInter,
 		CertCRLFile:        options.certCRLFile,
@@ -243,6 +271,22 @@ func NewSJWTVerifier(options SJWTOptions) *SJWTVerifier {
 // NewSJWTSigner builds a signer with explicit options instead of global state.
 func NewSJWTSigner(options SJWTOptions) *SJWTSigner {
 	return &SJWTSigner{options: options.toLibOptions()}
+}
+
+// Close releases resources owned by the verifier cache backend.
+func (v *SJWTVerifier) Close() error {
+	if v.options.cache == nil {
+		return nil
+	}
+	return v.options.cache.Close()
+}
+
+// Close releases resources owned by the signer cache backend.
+func (s *SJWTSigner) Close() error {
+	if s.options.cache == nil {
+		return nil
+	}
+	return s.options.cache.Close()
 }
 
 // CheckFullIdentity verifies a full Identity header with instance-local options.
@@ -294,8 +338,26 @@ func SJWTLibOptSetS(optname string, optval string) int {
 	globalLibOptionsMu.Lock()
 	defer globalLibOptionsMu.Unlock()
 	switch optname {
+	case "CacheBackend":
+		if optval != "" && optval != "none" && optval != "file" && optval != "redis" {
+			return SJWTRetErr
+		}
+		globalLibOptions.cacheBackend = optval
+		globalLibOptions.refreshURLCache()
+		return SJWTRetOK
 	case "CacheDirPath":
 		globalLibOptions.cacheDirPath = optval
+		globalLibOptions.refreshURLCache()
+		return SJWTRetOK
+	case "RedisURL":
+		if !validRedisURL(optval) {
+			return SJWTRetErr
+		}
+		globalLibOptions.redisURL = optval
+		globalLibOptions.refreshURLCache()
+		return SJWTRetOK
+	case "RedisKeyPrefix":
+		globalLibOptions.redisKeyPrefix = optval
 		globalLibOptions.refreshURLCache()
 		return SJWTRetOK
 	case "CacheNameMode":
@@ -330,6 +392,13 @@ func SJWTLibOptSetN(optname string, optval int) int {
 		globalLibOptions.cacheExpire = optval
 		globalLibOptions.refreshURLCache()
 		return SJWTRetOK
+	case "RedisTimeout":
+		if optval <= 0 {
+			return SJWTRetErr
+		}
+		globalLibOptions.redisTimeout = optval
+		globalLibOptions.refreshURLCache()
+		return SJWTRetOK
 	case "CertVerify":
 		globalLibOptions.certVerify = optval
 		return SJWTRetOK
@@ -356,6 +425,8 @@ func SJWTLibOptGetN(optname string) int {
 	switch optname {
 	case "CacheExpires":
 		return globalLibOptions.cacheExpire
+	case "RedisTimeout":
+		return globalLibOptions.redisTimeout
 	case "CertVerify":
 		return globalLibOptions.certVerify
 	case "AttrsVerify":
@@ -380,13 +451,14 @@ func SJWTLibOptSetV(optnameval string) int {
 	optName := optArray[0]
 	optVal := optArray[1]
 	switch optName {
-	case "CacheExpires", "CertVerify", "DenyPrivateX5U", "MaxURLContentBytes":
+	case "CacheExpires", "RedisTimeout", "CertVerify", "DenyPrivateX5U", "MaxURLContentBytes":
 		intVal, err := strconv.Atoi(optVal)
 		if err != nil {
 			return SJWTRetErr
 		}
 		return SJWTLibOptSetN(optName, intVal)
-	case "CacheDirPath", "CacheNameMode", "CertCAFile", "CertCAInter", "CertCRLFile":
+	case "CacheBackend", "CacheDirPath", "CacheNameMode", "RedisURL", "RedisKeyPrefix",
+		"CertCAFile", "CertCAInter", "CertCRLFile":
 		return SJWTLibOptSetS(optName, optVal)
 	}
 	return SJWTRetErr
@@ -728,7 +800,7 @@ func (o *SJWTLibOptions) getURLContent(urlVal string, timeoutVal int) ([]byte, i
 	}
 
 	if o.cache != nil {
-		cdata, cerr := o.cache.Get(urlVal)
+		cdata, cerr := o.cache.Get(context.Background(), urlVal)
 		if cdata != nil {
 			return cdata, SJWTRetOK, cerr
 		}
@@ -780,7 +852,7 @@ func (o *SJWTLibOptions) getURLContent(urlVal string, timeoutVal int) ([]byte, i
 	}
 
 	if o.cache != nil {
-		_ = o.cache.Set(urlVal, data)
+		_ = o.cache.Set(context.Background(), urlVal, data)
 	}
 
 	return data, SJWTRetOK, nil
