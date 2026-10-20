@@ -26,6 +26,7 @@ import (
 
 	"github.com/asipto/secsipidx/secsipid"
 	"github.com/gomagedon/expectate"
+	"github.com/redis/go-redis/v9"
 )
 
 type PubKeyVerifyTest struct {
@@ -818,6 +819,123 @@ func TestSJWTLibOptSetV(t *testing.T) {
 		expect(secsipid.SJWTLibOptSetV("CertCAFile=dummy-ca.pem")).ToBe(secsipid.SJWTRetOK)
 		expect(secsipid.SJWTLibOptSetS("CertCAFile", "")).ToBe(secsipid.SJWTRetOK)
 	})
+}
+
+func restoreURLCacheOptions(options secsipid.SJWTOptions) {
+	// Disable the active backend while restoring its individual settings.
+	secsipid.SJWTLibOptSetS("CacheBackend", "none")
+	secsipid.SJWTLibOptSetS("CacheDirPath", options.CacheDirPath)
+	secsipid.SJWTLibOptSetN("CacheExpires", options.CacheExpire)
+	secsipid.SJWTLibOptSetS("CacheNameMode", options.CacheNameMode)
+	secsipid.SJWTLibOptSetS("RedisURL", options.RedisURL)
+	secsipid.SJWTLibOptSetS("RedisKeyPrefix", options.RedisKeyPrefix)
+	secsipid.SJWTLibOptSetN("RedisTimeout", options.RedisTimeout)
+	secsipid.SJWTLibOptSetS("CacheBackend", options.CacheBackend)
+}
+
+func TestRedisCacheOptions(t *testing.T) {
+	original := secsipid.DefaultSJWTOptions()
+	defer restoreURLCacheOptions(original)
+
+	if ret := secsipid.SJWTLibOptSetS("CacheBackend", "invalid"); ret != secsipid.SJWTRetErr {
+		t.Fatalf("expected invalid cache backend to fail, got %d", ret)
+	}
+	if ret := secsipid.SJWTLibOptSetN("RedisTimeout", 0); ret != secsipid.SJWTRetErr {
+		t.Fatalf("expected invalid Redis timeout to fail, got %d", ret)
+	}
+	if ret := secsipid.SJWTLibOptSetS("RedisURL", "://invalid"); ret != secsipid.SJWTRetErr {
+		t.Fatalf("expected invalid Redis URL to fail, got %d", ret)
+	}
+
+	secsipid.SJWTLibOptSetS("RedisURL", "redis://localhost:6379/2")
+	secsipid.SJWTLibOptSetS("RedisKeyPrefix", "test-prefix:")
+	secsipid.SJWTLibOptSetN("RedisTimeout", 7)
+	secsipid.SJWTLibOptSetS("CacheBackend", "redis")
+
+	options := secsipid.DefaultSJWTOptions()
+	if options.CacheBackend != "redis" || options.RedisURL != "redis://localhost:6379/2" ||
+		options.RedisKeyPrefix != "test-prefix:" || options.RedisTimeout != 7 {
+		t.Fatalf("unexpected Redis options: %+v", options)
+	}
+}
+
+func TestRedisCacheFailureIsFailOpen(t *testing.T) {
+	original := secsipid.DefaultSJWTOptions()
+	defer restoreURLCacheOptions(original)
+
+	secsipid.SJWTLibOptSetS("CacheBackend", "none")
+	secsipid.SJWTLibOptSetN("CacheExpires", 60)
+	secsipid.SJWTLibOptSetN("RedisTimeout", 1)
+	secsipid.SJWTLibOptSetS("RedisURL", "redis://127.0.0.1:1/0")
+	secsipid.SJWTLibOptSetS("CacheBackend", "redis")
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("downloaded without Redis"))
+	})
+	stopTestServer := startTestServer(handler)
+	defer stopTestServer()
+
+	content, ret, err := secsipid.SJWTGetURLContent("http://localhost:5555/redis-fail-open", 10)
+	if ret != secsipid.SJWTRetOK || err != nil {
+		t.Fatalf("expected HTTP fallback to succeed, ret=%d err=%v", ret, err)
+	}
+	if string(content) != "downloaded without Redis" {
+		t.Fatalf("unexpected downloaded content: %q", content)
+	}
+}
+
+func TestRedisCacheIntegration(t *testing.T) {
+	redisURL := os.Getenv("SECSIPIDX_REDIS_TEST_URL")
+	if redisURL == "" {
+		t.Skip("SECSIPIDX_REDIS_TEST_URL is not set")
+	}
+
+	redisOptions, err := redis.ParseURL(redisURL)
+	if err != nil {
+		t.Fatalf("parse Redis test URL: %v", err)
+	}
+	redisClient := redis.NewClient(redisOptions)
+	defer redisClient.Close()
+	if err = redisClient.Ping(context.Background()).Err(); err != nil {
+		t.Fatalf("connect to Redis test server: %v", err)
+	}
+
+	original := secsipid.DefaultSJWTOptions()
+	defer restoreURLCacheOptions(original)
+
+	prefix := fmt.Sprintf("secsipidx:test:%d:", time.Now().UnixNano())
+	urlVal := "https://example.com/redis-cert.pem"
+	hashVal := sha256.Sum256([]byte(urlVal))
+	redisKey := prefix + hex.EncodeToString(hashVal[:])
+	defer redisClient.Del(context.Background(), redisKey)
+
+	secsipid.SJWTLibOptSetS("CacheBackend", "none")
+	secsipid.SJWTLibOptSetN("CacheExpires", 1)
+	secsipid.SJWTLibOptSetN("RedisTimeout", 2)
+	secsipid.SJWTLibOptSetS("RedisURL", redisURL)
+	secsipid.SJWTLibOptSetS("RedisKeyPrefix", prefix)
+	secsipid.SJWTLibOptSetS("CacheBackend", "redis")
+
+	if err = secsipid.SJWTSetURLCachedContent(urlVal, []byte("certificate")); err != nil {
+		t.Fatalf("write Redis cache: %v", err)
+	}
+	content, err := secsipid.SJWTGetURLCachedContent(urlVal)
+	if err != nil || string(content) != "certificate" {
+		t.Fatalf("read Redis cache: content=%q err=%v", content, err)
+	}
+	stored, err := redisClient.Get(context.Background(), redisKey).Bytes()
+	if err != nil || string(stored) != "certificate" {
+		t.Fatalf("inspect Redis cache key: content=%q err=%v", stored, err)
+	}
+	if ttl := redisClient.TTL(context.Background(), redisKey).Val(); ttl <= 0 || ttl > time.Second {
+		t.Fatalf("unexpected Redis cache TTL: %v", ttl)
+	}
+
+	time.Sleep(1100 * time.Millisecond)
+	content, err = secsipid.SJWTGetURLCachedContent(urlVal)
+	if err != nil || content != nil {
+		t.Fatalf("expected expired Redis cache miss: content=%q err=%v", content, err)
+	}
 }
 
 func TestLegacyGlobalOptionsConcurrentAccess(t *testing.T) {
