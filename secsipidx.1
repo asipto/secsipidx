@@ -1,4 +1,4 @@
-.TH SECSIPIDX 1 "2021-01-07"
+.TH SECSIPIDX 1 "2026-10-20"
 .\" Please adjust this date whenever revising the manpage.
 .SH NAME
 secsipidx \- CLI tool and HTTP API server to check or build SIP identity headers
@@ -103,11 +103,27 @@ run local basic test
 .B \-version
 print version
 .TP
+.B \-cache-backend
+certificate cache backend: none, file, or redis. If omitted, setting cache-dir
+keeps the legacy filesystem cache behavior
+.TP
 .B \-cache-dir
 path to the directory with cached certificates (default: '')
 .TP
 .B \-cache-expire
 duration of cached certificates (in seconds, default 3600)
+.TP
+.B \-cache-file-mode
+filesystem cache filename mode: plain or sha256 (default: plain)
+.TP
+.B \-redis-url
+Redis cache URL using redis://, rediss://, or unix://
+.TP
+.B \-redis-key-prefix
+Redis certificate key prefix (default: secsipidx:cert:)
+.TP
+.B \-redis-timeout
+Redis operation timeout in seconds (default: 3)
 .TP
 .B \-deny-private-x5u
 deny certificate URLs resolving to private or local addresses (disabled by default)
