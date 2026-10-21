@@ -58,9 +58,13 @@ type CLIOptions struct {
 	timeout            int
 	ltest              bool
 	version            bool
+	cachebackend       string
 	cachedir           string
 	cacheexpire        int
 	cachefilemode      string
+	redisurl           string
+	rediskeyprefix     string
+	redistimeout       int
 	denyprivateX5U     bool
 	maxURLContentBytes int
 	cafile             string
@@ -101,9 +105,13 @@ var cliops = CLIOptions{
 	timeout:            3,
 	ltest:              false,
 	version:            false,
+	cachebackend:       "",
 	cachedir:           "",
 	cacheexpire:        3600,
 	cachefilemode:      "plain",
+	redisurl:           "",
+	rediskeyprefix:     "secsipidx:cert:",
+	redistimeout:       3,
 	denyprivateX5U:     false,
 	maxURLContentBytes: 1 << 20,
 	cafile:             "",
@@ -154,9 +162,13 @@ func registerFlags(fs *flag.FlagSet, opts *CLIOptions) {
 	fs.BoolVar(&opts.ltest, "ltest", opts.ltest, "run local basic test")
 	fs.BoolVar(&opts.ltest, "l", opts.ltest, "run local basic test")
 	fs.BoolVar(&opts.version, "version", opts.version, "print version")
+	fs.StringVar(&opts.cachebackend, "cache-backend", opts.cachebackend, "certificate cache backend: none, file, or redis")
 	fs.StringVar(&opts.cachedir, "cache-dir", opts.cachedir, "path to the directory with cached certificates (default: '')")
 	fs.IntVar(&opts.cacheexpire, "cache-expire", opts.cacheexpire, "duration of cached certificates (in seconds)")
 	fs.StringVar(&opts.cachefilemode, "cache-file-mode", opts.cachefilemode, "cache filename mode: plain or sha256")
+	fs.StringVar(&opts.redisurl, "redis-url", opts.redisurl, "Redis cache URL (redis://, rediss://, or unix://)")
+	fs.StringVar(&opts.rediskeyprefix, "redis-key-prefix", opts.rediskeyprefix, "Redis cache key prefix")
+	fs.IntVar(&opts.redistimeout, "redis-timeout", opts.redistimeout, "Redis operation timeout (in seconds)")
 	fs.BoolVar(&opts.denyprivateX5U, "deny-private-x5u", opts.denyprivateX5U, "deny certificate URLs resolving to private or local addresses")
 	fs.IntVar(&opts.maxURLContentBytes, "max-url-content-bytes", opts.maxURLContentBytes, "maximum downloaded certificate size in bytes")
 	fs.StringVar(&opts.cafile, "ca-file", opts.cafile, "file with root CA certificates in pem format")
@@ -543,6 +555,55 @@ func httpServiceExitCode(err error) int {
 	return 1
 }
 
+func configureCache(opts CLIOptions) error {
+	switch opts.cachebackend {
+	case "", "none", "file", "redis":
+	default:
+		return fmt.Errorf("invalid cache backend: %s", opts.cachebackend)
+	}
+	if opts.cachebackend == "redis" {
+		if opts.redisurl == "" {
+			return fmt.Errorf("Redis URL is required for the redis cache backend")
+		}
+		if opts.cachedir != "" {
+			return fmt.Errorf("cache directory cannot be used with the redis cache backend")
+		}
+		if opts.cacheexpire <= 0 {
+			return fmt.Errorf("Redis cache expiration must be positive: %d", opts.cacheexpire)
+		}
+	} else if opts.redisurl != "" {
+		return fmt.Errorf("Redis URL requires the redis cache backend")
+	}
+
+	// Keep caching disabled while applying settings, then activate the backend
+	// only after every setter has accepted its value.
+	if secsipid.SJWTLibOptSetS("CacheBackend", "none") != secsipid.SJWTRetOK {
+		return fmt.Errorf("unable to disable cache while configuring it")
+	}
+	if secsipid.SJWTLibOptSetS("CacheDirPath", opts.cachedir) != secsipid.SJWTRetOK {
+		return fmt.Errorf("invalid cache directory: %s", opts.cachedir)
+	}
+	if secsipid.SJWTLibOptSetN("CacheExpires", opts.cacheexpire) != secsipid.SJWTRetOK {
+		return fmt.Errorf("invalid cache expiration: %d", opts.cacheexpire)
+	}
+	if secsipid.SJWTLibOptSetS("CacheNameMode", opts.cachefilemode) != secsipid.SJWTRetOK {
+		return fmt.Errorf("invalid cache file mode: %s", opts.cachefilemode)
+	}
+	if secsipid.SJWTLibOptSetS("RedisURL", opts.redisurl) != secsipid.SJWTRetOK {
+		return fmt.Errorf("invalid Redis URL")
+	}
+	if secsipid.SJWTLibOptSetS("RedisKeyPrefix", opts.rediskeyprefix) != secsipid.SJWTRetOK {
+		return fmt.Errorf("invalid Redis key prefix")
+	}
+	if secsipid.SJWTLibOptSetN("RedisTimeout", opts.redistimeout) != secsipid.SJWTRetOK {
+		return fmt.Errorf("invalid Redis timeout: %d", opts.redistimeout)
+	}
+	if secsipid.SJWTLibOptSetS("CacheBackend", opts.cachebackend) != secsipid.SJWTRetOK {
+		return fmt.Errorf("invalid cache backend: %s", opts.cachebackend)
+	}
+	return nil
+}
+
 func main() {
 	var ret int
 
@@ -558,14 +619,9 @@ func main() {
 		os.Exit(0)
 	}
 
-	if len(cliops.cachedir) > 0 {
-		secsipid.SetURLFileCacheOptions(cliops.cachedir, cliops.cacheexpire)
-	}
-	if len(cliops.cachefilemode) > 0 {
-		if secsipid.SJWTLibOptSetS("CacheNameMode", cliops.cachefilemode) != secsipid.SJWTRetOK {
-			fmt.Printf("invalid cache file mode: %s\n", cliops.cachefilemode)
-			os.Exit(1)
-		}
+	if err := configureCache(cliops); err != nil {
+		fmt.Printf("%v\n", err)
+		os.Exit(1)
 	}
 	if cliops.denyprivateX5U {
 		secsipid.SJWTLibOptSetN("DenyPrivateX5U", 1)
