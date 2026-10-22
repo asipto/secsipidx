@@ -98,6 +98,150 @@ func TestRegisterFlagsSetsMaximumURLContentSize(t *testing.T) {
 	}
 }
 
+func TestRegisterFlagsSetsRedisCacheOptions(t *testing.T) {
+	opts := cliops
+	fs := flag.NewFlagSet("test", flag.ContinueOnError)
+	registerFlags(fs, &opts)
+
+	err := fs.Parse([]string{
+		"-cache-backend", "redis",
+		"-cache-expire", "900",
+		"-redis-url", "rediss://user:password@example.com:6380/2",
+		"-redis-key-prefix", "tenant-a:cert:",
+		"-redis-timeout", "5",
+	})
+	if err != nil {
+		t.Fatalf("parse flags: %v", err)
+	}
+	if opts.cachebackend != "redis" || opts.cacheexpire != 900 ||
+		opts.redisurl != "rediss://user:password@example.com:6380/2" ||
+		opts.rediskeyprefix != "tenant-a:cert:" || opts.redistimeout != 5 {
+		t.Fatalf("unexpected Redis CLI options: %+v", opts)
+	}
+}
+
+func restoreMainCacheOptions(options secsipid.SJWTOptions) {
+	secsipid.SJWTLibOptSetS("CacheBackend", "none")
+	secsipid.SJWTLibOptSetS("CacheDirPath", options.CacheDirPath)
+	secsipid.SJWTLibOptSetN("CacheExpires", options.CacheExpire)
+	secsipid.SJWTLibOptSetS("CacheNameMode", options.CacheNameMode)
+	secsipid.SJWTLibOptSetS("RedisURL", options.RedisURL)
+	secsipid.SJWTLibOptSetS("RedisKeyPrefix", options.RedisKeyPrefix)
+	secsipid.SJWTLibOptSetN("RedisTimeout", options.RedisTimeout)
+	secsipid.SJWTLibOptSetS("CacheBackend", options.CacheBackend)
+}
+
+func TestConfigureCache(t *testing.T) {
+	t.Run("configures Redis", func(t *testing.T) {
+		original := secsipid.DefaultSJWTOptions()
+		defer restoreMainCacheOptions(original)
+
+		opts := cliops
+		opts.cachebackend = "redis"
+		opts.cacheexpire = 900
+		opts.redisurl = "redis://localhost:6379/2"
+		opts.rediskeyprefix = "tenant-a:cert:"
+		opts.redistimeout = 5
+		if err := configureCache(opts); err != nil {
+			t.Fatalf("configure Redis cache: %v", err)
+		}
+
+		configured := secsipid.DefaultSJWTOptions()
+		if configured.CacheBackend != "redis" || configured.CacheExpire != 900 ||
+			configured.RedisURL != opts.redisurl || configured.RedisKeyPrefix != opts.rediskeyprefix ||
+			configured.RedisTimeout != 5 {
+			t.Fatalf("unexpected configured Redis options: %+v", configured)
+		}
+	})
+
+	t.Run("preserves legacy file activation", func(t *testing.T) {
+		original := secsipid.DefaultSJWTOptions()
+		defer restoreMainCacheOptions(original)
+
+		opts := cliops
+		opts.cachebackend = ""
+		opts.cachedir = t.TempDir()
+		opts.cachefilemode = "sha256"
+		if err := configureCache(opts); err != nil {
+			t.Fatalf("configure file cache: %v", err)
+		}
+
+		configured := secsipid.DefaultSJWTOptions()
+		if configured.CacheBackend != "" || configured.CacheDirPath != opts.cachedir ||
+			configured.CacheNameMode != "sha256" {
+			t.Fatalf("unexpected configured file options: %+v", configured)
+		}
+	})
+
+	testCases := []struct {
+		name        string
+		configure   func(*CLIOptions)
+		errorSubstr string
+	}{
+		{
+			name: "invalid backend",
+			configure: func(opts *CLIOptions) {
+				opts.cachebackend = "invalid"
+			},
+			errorSubstr: "invalid cache backend",
+		},
+		{
+			name: "missing Redis URL",
+			configure: func(opts *CLIOptions) {
+				opts.cachebackend = "redis"
+				opts.redisurl = ""
+			},
+			errorSubstr: "Redis URL is required",
+		},
+		{
+			name: "Redis and file conflict",
+			configure: func(opts *CLIOptions) {
+				opts.cachebackend = "redis"
+				opts.redisurl = "redis://localhost:6379"
+				opts.cachedir = t.TempDir()
+			},
+			errorSubstr: "cache directory cannot be used",
+		},
+		{
+			name: "malformed Redis URL",
+			configure: func(opts *CLIOptions) {
+				opts.cachebackend = "redis"
+				opts.redisurl = "://invalid"
+			},
+			errorSubstr: "invalid Redis URL",
+		},
+		{
+			name: "invalid Redis timeout",
+			configure: func(opts *CLIOptions) {
+				opts.redistimeout = 0
+			},
+			errorSubstr: "invalid Redis timeout",
+		},
+		{
+			name: "non-Redis backend with Redis URL",
+			configure: func(opts *CLIOptions) {
+				opts.cachebackend = "file"
+				opts.redisurl = "redis://localhost:6379"
+			},
+			errorSubstr: "Redis URL requires",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			original := secsipid.DefaultSJWTOptions()
+			defer restoreMainCacheOptions(original)
+
+			opts := cliops
+			testCase.configure(&opts)
+			err := configureCache(opts)
+			if err == nil || !strings.Contains(err.Error(), testCase.errorSubstr) {
+				t.Fatalf("expected error containing %q, got %v", testCase.errorSubstr, err)
+			}
+		})
+	}
+}
+
 func TestCLICommandsFailOnMissingInputFiles(t *testing.T) {
 	t.Run("sign fails when header file is missing", func(t *testing.T) {
 		prev := cliops
