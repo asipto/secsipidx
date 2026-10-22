@@ -212,10 +212,36 @@ If `--cert-verify` is `0`, no verification is performed.
 
 ## Certificate Caching
 
-There is support for a basic caching mechanism of the public keys in local files.
+Downloaded public certificates can be cached in local files or in Redis. The cache lifetime is
+controlled with `-cache-expire` and defaults to 3600 seconds.
 
-It can be activated by giving `-cache-dir /path/to/cachedir` cli parameter, how long the cached value is
-considered valid can be controlled with `-cache-expire`.
+The filesystem cache keeps its existing configuration and can be activated with:
+
+```bash
+secsipidx -cache-dir /path/to/cachedir -cache-file-mode sha256
+```
+
+Specifying `-cache-backend file` is optional when `-cache-dir` is set. The filename mode can be
+`plain` (the default) or `sha256`.
+
+The Redis cache is configured with:
+
+```bash
+secsipidx -cache-backend redis \
+  -redis-url redis://localhost:6379/0 \
+  -redis-key-prefix secsipidx:cert: \
+  -redis-timeout 3 \
+  -cache-expire 3600
+```
+
+Redis URLs can use `redis://`, `rediss://`, or `unix://` and can include authentication and database
+selection. Certificate URLs are stored as SHA-256 keys below `-redis-key-prefix`; the original URL
+is not exposed in the Redis key. Redis controls expiration using the configured cache lifetime.
+Cache read or write failures do not prevent certificate downloading or verification.
+
+The Go library exposes the same settings through `SJWTOptions`: `CacheBackend`, `RedisURL`,
+`RedisKeyPrefix`, `RedisTimeout`, and `CacheExpire`. `SJWTVerifier` and `SJWTSigner` instances should
+be closed when no longer needed so Redis connection-pool resources are released.
 
 Certificate URL downloads allow private and local destinations by default. Use `-deny-private-x5u`
 to reject loopback, private, link-local, multicast, unspecified, and carrier-grade NAT destinations.
@@ -278,8 +304,15 @@ or `SecSIPIDOptSetV()`:
 
   * `CacheDirPath` (str) - the path to the folder where to store cached certificates
   that are downloaded from peers
+  * `CacheBackend` (str) - cache backend: `none`, `file`, or `redis`; an empty value
+  keeps the legacy behavior where `CacheDirPath` enables the file cache
+  * `CacheNameMode` (str) - filesystem cache filename mode: `plain` or `sha256`
   * `CacheExpires` (int) - number of seconds after which cached certificates are
   invalidated
+  * `RedisURL` (str) - Redis connection URL using `redis://`, `rediss://`, or `unix://`
+  * `RedisKeyPrefix` (str) - prefix for Redis certificate keys; the default is
+  `secsipidx:cert:`
+  * `RedisTimeout` (int) - Redis operation timeout in seconds; the default is `3`
   * `DenyPrivateX5U` (int) - set to `1` to reject certificate URLs resolving to
   private or local addresses; the default is `0`
   * `MaxURLContentBytes` (int) - maximum downloaded certificate size in bytes;
@@ -292,8 +325,6 @@ or `SecSIPIDOptSetV()`:
 
 ## To-Do
 
-  * external cache (e.g., use of Redis) of downloaded public keys used to verify
-  Identity signatures
   * blacklisting of unresponsive x5u URLs
   * support more data formats for HTTP API (e.g., JSON for generating Identity)
   * configuration file
