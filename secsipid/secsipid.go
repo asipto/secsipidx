@@ -111,6 +111,7 @@ type SJWTLibOptions struct {
 	cacheDirPath       string
 	cacheExpire        int
 	cacheNameMode      string
+	cacheStoreURL      bool
 	redisURL           string
 	redisKeyPrefix     string
 	redisTimeout       int
@@ -131,6 +132,7 @@ type SJWTOptions struct {
 	CacheDirPath       string
 	CacheExpire        int
 	CacheNameMode      string
+	CacheStoreURL      bool
 	RedisURL           string
 	RedisKeyPrefix     string
 	RedisTimeout       int
@@ -170,6 +172,7 @@ var (
 		cacheDirPath:       "",
 		cacheExpire:        3600,
 		cacheNameMode:      "plain",
+		cacheStoreURL:      false,
 		redisURL:           "",
 		redisKeyPrefix:     defaultRedisKeyPrefix,
 		redisTimeout:       defaultRedisTimeout,
@@ -209,6 +212,7 @@ func (o SJWTOptions) toLibOptions() SJWTLibOptions {
 	if len(o.CacheNameMode) > 0 {
 		libOptions.cacheNameMode = o.CacheNameMode
 	}
+	libOptions.cacheStoreURL = o.CacheStoreURL
 	if len(o.RedisURL) > 0 {
 		libOptions.redisURL = o.RedisURL
 	}
@@ -249,6 +253,7 @@ func DefaultSJWTOptions() SJWTOptions {
 		CacheDirPath:       options.cacheDirPath,
 		CacheExpire:        options.cacheExpire,
 		CacheNameMode:      options.cacheNameMode,
+		CacheStoreURL:      options.cacheStoreURL,
 		RedisURL:           options.redisURL,
 		RedisKeyPrefix:     options.redisKeyPrefix,
 		RedisTimeout:       options.redisTimeout,
@@ -392,6 +397,10 @@ func SJWTLibOptSetN(optname string, optval int) int {
 		globalLibOptions.cacheExpire = optval
 		globalLibOptions.refreshURLCache()
 		return SJWTRetOK
+	case "CacheStoreURL":
+		globalLibOptions.cacheStoreURL = optval != 0
+		globalLibOptions.refreshURLCache()
+		return SJWTRetOK
 	case "RedisTimeout":
 		if optval <= 0 {
 			return SJWTRetErr
@@ -425,6 +434,11 @@ func SJWTLibOptGetN(optname string) int {
 	switch optname {
 	case "CacheExpires":
 		return globalLibOptions.cacheExpire
+	case "CacheStoreURL":
+		if globalLibOptions.cacheStoreURL {
+			return 1
+		}
+		return 0
 	case "RedisTimeout":
 		return globalLibOptions.redisTimeout
 	case "CertVerify":
@@ -451,7 +465,8 @@ func SJWTLibOptSetV(optnameval string) int {
 	optName := optArray[0]
 	optVal := optArray[1]
 	switch optName {
-	case "CacheExpires", "RedisTimeout", "CertVerify", "DenyPrivateX5U", "MaxURLContentBytes":
+	case "CacheExpires", "CacheStoreURL", "RedisTimeout", "CertVerify", "DenyPrivateX5U",
+		"MaxURLContentBytes":
 		intVal, err := strconv.Atoi(optVal)
 		if err != nil {
 			return SJWTRetErr
