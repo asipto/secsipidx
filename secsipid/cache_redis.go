@@ -20,12 +20,13 @@ type redisURLCache struct {
 	expire    time.Duration
 	keyPrefix string
 	timeout   time.Duration
+	storeURL  bool
 }
 
 var _ urlCache = (*redisURLCache)(nil)
 
 func newRedisURLCache(redisURL string, keyPrefix string, expire int,
-	timeout int) (*redisURLCache, error) {
+	timeout int, storeURL bool) (*redisURLCache, error) {
 	if redisURL == "" {
 		return nil, errors.New("Redis URL is required")
 	}
@@ -54,6 +55,7 @@ func newRedisURLCache(redisURL string, keyPrefix string, expire int,
 		expire:    time.Duration(expire) * time.Second,
 		keyPrefix: keyPrefix,
 		timeout:   timeoutDuration,
+		storeURL:  storeURL,
 	}, nil
 }
 
@@ -89,7 +91,16 @@ func (c *redisURLCache) Set(ctx context.Context, urlVal string, data []byte) err
 	ctx, cancel := c.operationContext(ctx)
 	defer cancel()
 
-	return c.client.Set(ctx, c.key(urlVal), data, c.expire).Err()
+	key := c.key(urlVal)
+	if !c.storeURL {
+		return c.client.Set(ctx, key, data, c.expire).Err()
+	}
+	_, err := c.client.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+		pipe.Set(ctx, key, data, c.expire)
+		pipe.Set(ctx, key+":url", urlVal, c.expire)
+		return nil
+	})
+	return err
 }
 
 func (c *redisURLCache) Close() error {
