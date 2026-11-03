@@ -12,6 +12,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/hex"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"math/big"
 	"net"
@@ -827,6 +828,11 @@ func restoreURLCacheOptions(options secsipid.SJWTOptions) {
 	secsipid.SJWTLibOptSetS("CacheDirPath", options.CacheDirPath)
 	secsipid.SJWTLibOptSetN("CacheExpires", options.CacheExpire)
 	secsipid.SJWTLibOptSetS("CacheNameMode", options.CacheNameMode)
+	if options.CacheStoreURL {
+		secsipid.SJWTLibOptSetN("CacheStoreURL", 1)
+	} else {
+		secsipid.SJWTLibOptSetN("CacheStoreURL", 0)
+	}
 	secsipid.SJWTLibOptSetS("RedisURL", options.RedisURL)
 	secsipid.SJWTLibOptSetS("RedisKeyPrefix", options.RedisKeyPrefix)
 	secsipid.SJWTLibOptSetN("RedisTimeout", options.RedisTimeout)
@@ -850,11 +856,13 @@ func TestRedisCacheOptions(t *testing.T) {
 	secsipid.SJWTLibOptSetS("RedisURL", "redis://localhost:6379/2")
 	secsipid.SJWTLibOptSetS("RedisKeyPrefix", "test-prefix:")
 	secsipid.SJWTLibOptSetN("RedisTimeout", 7)
+	secsipid.SJWTLibOptSetN("CacheStoreURL", 1)
 	secsipid.SJWTLibOptSetS("CacheBackend", "redis")
 
 	options := secsipid.DefaultSJWTOptions()
 	if options.CacheBackend != "redis" || options.RedisURL != "redis://localhost:6379/2" ||
-		options.RedisKeyPrefix != "test-prefix:" || options.RedisTimeout != 7 {
+		options.RedisKeyPrefix != "test-prefix:" || options.RedisTimeout != 7 ||
+		!options.CacheStoreURL {
 		t.Fatalf("unexpected Redis options: %+v", options)
 	}
 }
@@ -907,13 +915,15 @@ func TestRedisCacheIntegration(t *testing.T) {
 	urlVal := "https://example.com/redis-cert.pem"
 	hashVal := sha256.Sum256([]byte(urlVal))
 	redisKey := prefix + hex.EncodeToString(hashVal[:])
-	defer redisClient.Del(context.Background(), redisKey)
+	redisURLKey := redisKey + ":url"
+	defer redisClient.Del(context.Background(), redisKey, redisURLKey)
 
 	secsipid.SJWTLibOptSetS("CacheBackend", "none")
 	secsipid.SJWTLibOptSetN("CacheExpires", 1)
 	secsipid.SJWTLibOptSetN("RedisTimeout", 2)
 	secsipid.SJWTLibOptSetS("RedisURL", redisURL)
 	secsipid.SJWTLibOptSetS("RedisKeyPrefix", prefix)
+	secsipid.SJWTLibOptSetN("CacheStoreURL", 1)
 	secsipid.SJWTLibOptSetS("CacheBackend", "redis")
 
 	if err = secsipid.SJWTSetURLCachedContent(urlVal, []byte("certificate")); err != nil {
@@ -930,11 +940,21 @@ func TestRedisCacheIntegration(t *testing.T) {
 	if ttl := redisClient.TTL(context.Background(), redisKey).Val(); ttl <= 0 || ttl > time.Second {
 		t.Fatalf("unexpected Redis cache TTL: %v", ttl)
 	}
+	storedURL, err := redisClient.Get(context.Background(), redisURLKey).Result()
+	if err != nil || storedURL != urlVal {
+		t.Fatalf("inspect Redis URL metadata: url=%q err=%v", storedURL, err)
+	}
+	if ttl := redisClient.TTL(context.Background(), redisURLKey).Val(); ttl <= 0 || ttl > time.Second {
+		t.Fatalf("unexpected Redis URL metadata TTL: %v", ttl)
+	}
 
 	time.Sleep(1100 * time.Millisecond)
 	content, err = secsipid.SJWTGetURLCachedContent(urlVal)
 	if err != nil || content != nil {
 		t.Fatalf("expected expired Redis cache miss: content=%q err=%v", content, err)
+	}
+	if err = redisClient.Get(context.Background(), redisURLKey).Err(); !errors.Is(err, redis.Nil) {
+		t.Fatalf("expected expired Redis URL metadata, got %v", err)
 	}
 }
 
@@ -1387,6 +1407,60 @@ func TestURLCacheFilePathModes(t *testing.T) {
 	secsipid.SJWTLibOptSetS("CacheNameMode", "sha256")
 	hashVal := sha256.Sum256([]byte(urlVal))
 	expect(secsipid.SJWTGetURLCacheFilePath(urlVal)).ToBe(filepath.Join(workDir, "url_"+hex.EncodeToString(hashVal[:])))
+}
+
+func TestFileCacheStoresURLMetadata(t *testing.T) {
+	original := secsipid.DefaultSJWTOptions()
+	defer restoreURLCacheOptions(original)
+
+	cacheDir := t.TempDir()
+	urlVal := "https://example.com/cert.pem?tenant=example"
+	secsipid.SJWTLibOptSetS("CacheBackend", "none")
+	secsipid.SJWTLibOptSetS("CacheDirPath", cacheDir)
+	secsipid.SJWTLibOptSetN("CacheExpires", 3600)
+	secsipid.SJWTLibOptSetS("CacheNameMode", "sha256")
+	secsipid.SJWTLibOptSetN("CacheStoreURL", 1)
+	secsipid.SJWTLibOptSetS("CacheBackend", "file")
+
+	if err := secsipid.SJWTSetURLCachedContent(urlVal, []byte("certificate")); err != nil {
+		t.Fatalf("write file cache: %v", err)
+	}
+	cacheFilePath := secsipid.SJWTGetURLCacheFilePath(urlVal)
+	urlFilePath := cacheFilePath + ".url"
+	storedURL, err := os.ReadFile(urlFilePath)
+	if err != nil || string(storedURL) != urlVal {
+		t.Fatalf("read URL metadata: url=%q err=%v", storedURL, err)
+	}
+
+	secsipid.SJWTLibOptSetN("CacheStoreURL", 0)
+	if err = secsipid.SJWTSetURLCachedContent(urlVal, []byte("updated certificate")); err != nil {
+		t.Fatalf("rewrite file cache without URL metadata: %v", err)
+	}
+	if _, err = os.Stat(urlFilePath); !os.IsNotExist(err) {
+		t.Fatalf("expected disabled URL metadata to be removed, got %v", err)
+	}
+
+	secsipid.SJWTLibOptSetN("CacheStoreURL", 1)
+	if err = secsipid.SJWTSetURLCachedContent(urlVal, []byte("certificate")); err != nil {
+		t.Fatalf("rewrite file cache with URL metadata: %v", err)
+	}
+	expiredTime := time.Now().Add(-2 * time.Second)
+	if err = os.Chtimes(cacheFilePath, expiredTime, expiredTime); err != nil {
+		t.Fatalf("age cache file: %v", err)
+	}
+	if err = os.Chtimes(urlFilePath, expiredTime, expiredTime); err != nil {
+		t.Fatalf("age URL metadata file: %v", err)
+	}
+	secsipid.SJWTLibOptSetN("CacheExpires", 1)
+	content, err := secsipid.SJWTGetURLCachedContent(urlVal)
+	if err != nil || content != nil {
+		t.Fatalf("expected expired cache miss: content=%q err=%v", content, err)
+	}
+	for _, filePath := range []string{cacheFilePath, urlFilePath} {
+		if _, err = os.Stat(filePath); !os.IsNotExist(err) {
+			t.Fatalf("expected expired cache file %q to be removed, got %v", filePath, err)
+		}
+	}
 }
 
 func TestGetURLContentCreatesCacheDirectoryAndWritesHashedFile(t *testing.T) {
