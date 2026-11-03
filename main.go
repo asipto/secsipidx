@@ -62,6 +62,7 @@ type CLIOptions struct {
 	cachedir           string
 	cacheexpire        int
 	cachefilemode      string
+	cachestoreurl      bool
 	redisurl           string
 	rediskeyprefix     string
 	redistimeout       int
@@ -109,6 +110,7 @@ var cliops = CLIOptions{
 	cachedir:           "",
 	cacheexpire:        3600,
 	cachefilemode:      "plain",
+	cachestoreurl:      false,
 	redisurl:           "",
 	rediskeyprefix:     "secsipidx:cert:",
 	redistimeout:       3,
@@ -166,6 +168,7 @@ func registerFlags(fs *flag.FlagSet, opts *CLIOptions) {
 	fs.StringVar(&opts.cachedir, "cache-dir", opts.cachedir, "path to the directory with cached certificates (default: '')")
 	fs.IntVar(&opts.cacheexpire, "cache-expire", opts.cacheexpire, "duration of cached certificates (in seconds)")
 	fs.StringVar(&opts.cachefilemode, "cache-file-mode", opts.cachefilemode, "cache filename mode: plain or sha256")
+	fs.BoolVar(&opts.cachestoreurl, "cache-store-url", opts.cachestoreurl, "store certificate URL metadata alongside cached content")
 	fs.StringVar(&opts.redisurl, "redis-url", opts.redisurl, "Redis cache URL (redis://, rediss://, or unix://)")
 	fs.StringVar(&opts.rediskeyprefix, "redis-key-prefix", opts.rediskeyprefix, "Redis cache key prefix")
 	fs.IntVar(&opts.redistimeout, "redis-timeout", opts.redistimeout, "Redis operation timeout (in seconds)")
@@ -589,6 +592,9 @@ func configureCache(opts CLIOptions) error {
 	if secsipid.SJWTLibOptSetS("CacheNameMode", opts.cachefilemode) != secsipid.SJWTRetOK {
 		return fmt.Errorf("invalid cache file mode: %s", opts.cachefilemode)
 	}
+	if secsipid.SJWTLibOptSetN("CacheStoreURL", boolToInt(opts.cachestoreurl)) != secsipid.SJWTRetOK {
+		return fmt.Errorf("invalid cache URL metadata setting")
+	}
 	if secsipid.SJWTLibOptSetS("RedisURL", opts.redisurl) != secsipid.SJWTRetOK {
 		return fmt.Errorf("invalid Redis URL")
 	}
@@ -602,6 +608,13 @@ func configureCache(opts CLIOptions) error {
 		return fmt.Errorf("invalid cache backend: %s", opts.cachebackend)
 	}
 	return nil
+}
+
+func boolToInt(value bool) int {
+	if value {
+		return 1
+	}
+	return 0
 }
 
 func main() {
