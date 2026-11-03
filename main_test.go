@@ -106,6 +106,7 @@ func TestRegisterFlagsSetsRedisCacheOptions(t *testing.T) {
 	err := fs.Parse([]string{
 		"-cache-backend", "redis",
 		"-cache-expire", "900",
+		"-cache-store-url",
 		"-redis-url", "rediss://user:password@example.com:6380/2",
 		"-redis-key-prefix", "tenant-a:cert:",
 		"-redis-timeout", "5",
@@ -113,7 +114,7 @@ func TestRegisterFlagsSetsRedisCacheOptions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse flags: %v", err)
 	}
-	if opts.cachebackend != "redis" || opts.cacheexpire != 900 ||
+	if opts.cachebackend != "redis" || opts.cacheexpire != 900 || !opts.cachestoreurl ||
 		opts.redisurl != "rediss://user:password@example.com:6380/2" ||
 		opts.rediskeyprefix != "tenant-a:cert:" || opts.redistimeout != 5 {
 		t.Fatalf("unexpected Redis CLI options: %+v", opts)
@@ -125,6 +126,7 @@ func restoreMainCacheOptions(options secsipid.SJWTOptions) {
 	secsipid.SJWTLibOptSetS("CacheDirPath", options.CacheDirPath)
 	secsipid.SJWTLibOptSetN("CacheExpires", options.CacheExpire)
 	secsipid.SJWTLibOptSetS("CacheNameMode", options.CacheNameMode)
+	secsipid.SJWTLibOptSetN("CacheStoreURL", boolToInt(options.CacheStoreURL))
 	secsipid.SJWTLibOptSetS("RedisURL", options.RedisURL)
 	secsipid.SJWTLibOptSetS("RedisKeyPrefix", options.RedisKeyPrefix)
 	secsipid.SJWTLibOptSetN("RedisTimeout", options.RedisTimeout)
@@ -139,6 +141,7 @@ func TestConfigureCache(t *testing.T) {
 		opts := cliops
 		opts.cachebackend = "redis"
 		opts.cacheexpire = 900
+		opts.cachestoreurl = true
 		opts.redisurl = "redis://localhost:6379/2"
 		opts.rediskeyprefix = "tenant-a:cert:"
 		opts.redistimeout = 5
@@ -148,6 +151,7 @@ func TestConfigureCache(t *testing.T) {
 
 		configured := secsipid.DefaultSJWTOptions()
 		if configured.CacheBackend != "redis" || configured.CacheExpire != 900 ||
+			!configured.CacheStoreURL ||
 			configured.RedisURL != opts.redisurl || configured.RedisKeyPrefix != opts.rediskeyprefix ||
 			configured.RedisTimeout != 5 {
 			t.Fatalf("unexpected configured Redis options: %+v", configured)
