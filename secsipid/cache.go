@@ -21,15 +21,17 @@ type fileURLCache struct {
 	dirPath  string
 	expire   int
 	nameMode string
+	storeURL bool
 }
 
 var _ urlCache = (*fileURLCache)(nil)
 
-func newFileURLCache(dirPath string, expire int, nameMode string) *fileURLCache {
+func newFileURLCache(dirPath string, expire int, nameMode string, storeURL bool) *fileURLCache {
 	return &fileURLCache{
 		dirPath:  dirPath,
 		expire:   expire,
 		nameMode: nameMode,
+		storeURL: storeURL,
 	}
 }
 
@@ -57,6 +59,7 @@ func (c *fileURLCache) Get(_ context.Context, urlVal string) ([]byte, error) {
 	}
 	if int(time.Since(fileStat.ModTime()).Seconds()) > c.expire {
 		_ = os.Remove(filePath)
+		_ = os.Remove(filePath + ".url")
 		return nil, nil
 	}
 	return os.ReadFile(filePath)
@@ -64,6 +67,19 @@ func (c *fileURLCache) Get(_ context.Context, urlVal string) ([]byte, error) {
 
 func (c *fileURLCache) Set(_ context.Context, urlVal string, data []byte) error {
 	filePath := c.filePath(urlVal)
+	if err := writeFileAtomic(filePath, data); err != nil {
+		return err
+	}
+
+	urlFilePath := filePath + ".url"
+	if !c.storeURL {
+		_ = os.Remove(urlFilePath)
+		return nil
+	}
+	return writeFileAtomic(urlFilePath, []byte(urlVal))
+}
+
+func writeFileAtomic(filePath string, data []byte) error {
 	cacheDir := filepath.Dir(filePath)
 	if err := os.MkdirAll(cacheDir, 0750); err != nil {
 		return err
@@ -118,11 +134,12 @@ func (o *SJWTLibOptions) refreshURLCache() {
 			o.cache = nil
 			return
 		}
-		o.cache = newFileURLCache(o.cacheDirPath, o.cacheExpire, o.cacheNameMode)
+		o.cache = newFileURLCache(o.cacheDirPath, o.cacheExpire, o.cacheNameMode, o.cacheStoreURL)
 	case "none":
 		o.cache = nil
 	case "redis":
-		cache, err := newRedisURLCache(o.redisURL, o.redisKeyPrefix, o.cacheExpire, o.redisTimeout)
+		cache, err := newRedisURLCache(o.redisURL, o.redisKeyPrefix, o.cacheExpire, o.redisTimeout,
+			o.cacheStoreURL)
 		if err != nil {
 			o.cache = &errorURLCache{err: err}
 			return
@@ -134,7 +151,7 @@ func (o *SJWTLibOptions) refreshURLCache() {
 }
 
 func (o *SJWTLibOptions) fileURLCache() *fileURLCache {
-	return newFileURLCache(o.cacheDirPath, o.cacheExpire, o.cacheNameMode)
+	return newFileURLCache(o.cacheDirPath, o.cacheExpire, o.cacheNameMode, o.cacheStoreURL)
 }
 
 // SJWTGetURLCacheFilePath returns the configured filesystem cache path for a URL.
