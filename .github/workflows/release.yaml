@@ -1,27 +1,76 @@
-on: 
+name: Release
+
+on:
   release:
     types: [created]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag to build and upload assets for
+        required: true
+        type: string
+
+permissions:
+  contents: write
 
 jobs:
   releases-matrix:
-    name: Release Go Binary
+    name: Release Go Binary (${{ matrix.goos }}, ${{ matrix.goarch }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        # build and publish in parallel: linux/386, linux/amd64, linux/arm64, windows/386, windows/amd64, darwin/amd64, darwin/arm64
         goos: [linux, windows, darwin]
         goarch: ["386", amd64, arm64]
-        exclude:  
-          - goarch: "386"
-            goos: darwin 
-          - goarch: arm64
-            goos: windows 
+        exclude:
+          - goos: darwin
+            goarch: "386"
+          - goos: windows
+            goarch: arm64
     steps:
-    - uses: actions/checkout@v4
-    - uses: wangyoucao577/go-release-action@v1.40
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        goos: ${{ matrix.goos }}
-        goarch: ${{ matrix.goarch }}
-        goversion: "1.26"
-        extra_files: LICENSE README.md secsipidx.1
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.release_tag }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build and package
+        id: package
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
+        run: |
+          binary_name="secsipidx"
+          if [ "$GOOS" = "windows" ]; then
+            binary_name="${binary_name}.exe"
+          fi
+
+          package_dir="dist/package"
+          archive_base="secsipidx-${RELEASE_TAG}-${GOOS}-${GOARCH}"
+          mkdir -p "$package_dir"
+
+          go build -trimpath -ldflags="-s -w" -o "$package_dir/$binary_name" .
+          cp LICENSE README.md secsipidx.1 "$package_dir/"
+
+          if [ "$GOOS" = "windows" ]; then
+            archive="dist/${archive_base}.zip"
+            (cd "$package_dir" && zip -q -r "../../$archive" .)
+          else
+            archive="dist/${archive_base}.tar.gz"
+            tar -C "$package_dir" -czf "$archive" .
+          fi
+
+          echo "asset=$archive" >> "$GITHUB_OUTPUT"
+
+      - name: Upload release asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          gh release upload "${{ github.event.release.tag_name || inputs.release_tag }}"
+          "${{ steps.package.outputs.asset }}" --clobber
