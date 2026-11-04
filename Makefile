@@ -35,8 +35,8 @@ install-lib-all: install-lib install-dev
 install-dirs:
 	mkdir -p ${DESTDIR}${PREFIX}
 	mkdir -p ${DESTDIR}${PREFIX}/bin
-	mkdir -p ${DESTDIR}${PREFIX}/lib
-	mkdir -p ${DESTDIR}${PREFIX}/lib/pkgconfig
+	mkdir -p ${DESTDIR}${LIBDIR}
+	mkdir -p ${DESTDIR}${LIBDIR}/pkgconfig
 	mkdir -p ${DESTDIR}${PREFIX}/include
 
 .PHONY: install

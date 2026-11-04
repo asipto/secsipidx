@@ -36,17 +36,23 @@ liba:
 
 .PHONY: install-libso
 install-libso:
-	cp ${SOREALNAME} ${DESTDIR}${PREFIX}/lib/
-	ln -fs ${SOREALNAME} ${DESTDIR}${PREFIX}/lib/${SOBASENAME}
-	ln -fs ${SOREALNAME} ${DESTDIR}${PREFIX}/lib/${SOLIBNAME}
+	cp ${SOREALNAME} ${DESTDIR}${LIBDIR}/
+	ln -fs ${SOREALNAME} ${DESTDIR}${LIBDIR}/${SOBASENAME}
+	ln -fs ${SOREALNAME} ${DESTDIR}${LIBDIR}/${SOLIBNAME}
 
 .PHONY: install-liba
 install-liba:
-	cp ${ABASENAME} ${DESTDIR}${PREFIX}/lib/
+	cp ${ABASENAME} ${DESTDIR}${LIBDIR}/
+
+secsipid-$(LIBVERMAJ).pc: secsipid.pc.in
+	sed -e 's|@prefix@|${PREFIX}|g' \
+	    -e 's|@libdir@|${LIBDIR}|g' \
+			-e 's|@version@|${LIBVERSION}|g' \
+	    secsipid.pc.in > secsipid-${LIBVERMAJ}.pc
 
 .PHONY: install-dev
-install-dev:
-	cp secsipid-2.pc ${DESTDIR}${PREFIX}/lib/pkgconfig/
+install-dev: secsipid-$(LIBVERMAJ).pc
+	cp secsipid-${LIBVERMAJ}.pc ${DESTDIR}${LIBDIR}/pkgconfig/
 	cp libsecsipid.h ${DESTDIR}${PREFIX}/include/
 	cp secsipid.h ${DESTDIR}${PREFIX}/include/
 

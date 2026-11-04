@@ -4,6 +4,7 @@
 override makefile_defs_included:=1
 
 PREFIX ?= /usr/local
+LIBDIR ?= $(PREFIX)/lib
 BASENAME ?= secsipid
 TOOLNAME ?= secsipidx
 
