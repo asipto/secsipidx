@@ -16,7 +16,7 @@ import (
 	"github.com/asipto/secsipidx/secsipid"
 )
 
-const secsipidxVersion = "1.3.2"
+const secsipidxVersion = "2.0.0"
 
 const (
 	maxHTTPRequestBodyBytes = 1 << 20
