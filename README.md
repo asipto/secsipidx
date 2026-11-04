@@ -231,6 +231,7 @@ secsipidx -cache-backend redis \
   -redis-url redis://localhost:6379/0 \
   -redis-key-prefix secsipidx:cert: \
   -redis-timeout 3 \
+  -cache-store-url \
   -cache-expire 3600
 ```
 
@@ -239,9 +240,15 @@ selection. Certificate URLs are stored as SHA-256 keys below `-redis-key-prefix`
 is not exposed in the Redis key. Redis controls expiration using the configured cache lifetime.
 Cache read or write failures do not prevent certificate downloading or verification.
 
+Use `-cache-store-url` to store the original certificate URL as optional metadata. This is disabled
+by default because URLs can contain credentials or sensitive query parameters. The filesystem cache
+stores the URL in `<certificate-cache-file>.url`. Redis stores it in a companion key named
+`<certificate-key>:url` with the same TTL as the certificate. Restrict access to the cache when this
+option is enabled.
+
 The Go library exposes the same settings through `SJWTOptions`: `CacheBackend`, `RedisURL`,
-`RedisKeyPrefix`, `RedisTimeout`, and `CacheExpire`. `SJWTVerifier` and `SJWTSigner` instances should
-be closed when no longer needed so Redis connection-pool resources are released.
+`RedisKeyPrefix`, `RedisTimeout`, `CacheExpire`, and `CacheStoreURL`. `SJWTVerifier` and `SJWTSigner`
+instances should be closed when no longer needed so Redis connection-pool resources are released.
 
 Certificate URL downloads allow private and local destinations by default. Use `-deny-private-x5u`
 to reject loopback, private, link-local, multicast, unspecified, and carrier-grade NAT destinations.
@@ -307,6 +314,8 @@ or `SecSIPIDOptSetV()`:
   * `CacheBackend` (str) - cache backend: `none`, `file`, or `redis`; an empty value
   keeps the legacy behavior where `CacheDirPath` enables the file cache
   * `CacheNameMode` (str) - filesystem cache filename mode: `plain` or `sha256`
+  * `CacheStoreURL` (int) - set to `1` to store the original certificate URL in
+  companion cache metadata; the default is `0`
   * `CacheExpires` (int) - number of seconds after which cached certificates are
   invalidated
   * `RedisURL` (str) - Redis connection URL using `redis://`, `rediss://`, or `unix://`
