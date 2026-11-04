@@ -46,7 +46,7 @@ install-liba:
 
 .PHONY: install-dev
 install-dev:
-	cp secsipid-1.pc ${DESTDIR}${PREFIX}/lib/pkgconfig/
+	cp secsipid-2.pc ${DESTDIR}${PREFIX}/lib/pkgconfig/
 	cp libsecsipid.h ${DESTDIR}${PREFIX}/include/
 	cp secsipid.h ${DESTDIR}${PREFIX}/include/
 
