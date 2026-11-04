@@ -116,6 +116,10 @@ duration of cached certificates (in seconds, default 3600)
 .B \-cache-file-mode
 filesystem cache filename mode: plain or sha256 (default: plain)
 .TP
+.B \-cache-store-url
+store the original certificate URL in companion cache metadata. Disabled by
+default because URLs can contain sensitive data
+.TP
 .B \-redis-url
 Redis cache URL using redis://, rediss://, or unix://
 .TP
